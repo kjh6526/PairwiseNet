@@ -16,41 +16,46 @@ The official repository for \<A PairwiseNet: Pairwise Collision Distance Learnin
 
 ### Environment
 
-We recommend using Anaconda for environment management. To set up the Python environment, simply run:
+We recommend using Anaconda for environment management. Set up the Python environment with the following commands:
 ```bash
 conda env create -f environment.yml
 conda activate PairwiseNet
 ```
-Adjust as needed based on the specifics of your setup.
+Make any necessary adjustments based on your specific setup.
 
 ### Datasets
 
-You need to generate the pairwise collision distance dataset for the multi-arm robot system by run:
+Generate the pairwise collision distance dataset for the multi-arm robot system using:
 ```bash
-python generate_dataset_multiarm_pairwise.py --config configs/pairwise_dataset_generation/data_config_multiarm.yml
+python generate_dataset_multiarm_pairwise.py \
+  --config configs/pairwise_dataset_generation/data_config_multiarm.yml
 ```
+Adjust the generation settings in `data_config_multiarm.yml` as required.
 
-The detailed generation setting can be modified by adjusting `data_config_multiarm.yml`.
-
-You also need to generate the global collision distance dataset (for the test dataset) by run:
+Also, generate the global collision distance dataset (used for testing) with:
 ```bash
-python generate_dataset_multiarm_global.py --env configs/env/{env_config} --n_data {N}
+python generate_dataset_multiarm_global.py \
+  --env configs/env/{env_config} \
+  --n_data {N}
 ```
-- `env_config` is the config file (.yml) of the target robot system, `env_config_multipanda.yml` for example. 
-- `N` is the number of data points (joint configurations) in the dataset.
+- `env_config` is the configuration file (e.g., .yml) for the target robot system, such as `env_config_multipanda.yml`.
+- `N` denotes the number of data points (joint configurations) in the dataset.
 
 ## Training
 
-The training procedure of PairwiseNet can be started by
+Start the PairwiseNet training procedure with:
 ```bash
-python train.py --config configs/training/{training_config} --device {device} --run {run_id}
+python train.py \
+  --config configs/training/{training_config} \
+  --device {device} \
+  --run {run_id}
 ```
-- `training_config` is the config file (.yml) of the training, `config_PairwiseNet.yml` for example. 
-- `device` is the index of GPU device, either `0` or `1`, `cpu` for the use of CPU.
-- `run_id` is the string identifier of the training, whatever you want. 
+- `training_config` is the training configuration file, like `config_PairwiseNet.yml`. 
+- `device` indicates the GPU device index, either `0` or `1`, or use `cpu` for CPU processing.
+- `run_id` is a user-defined string identifier for the training session.
 
 ## Citation
-If you found this repository useful in your research, please consider citing:
+If you find this repository helpful for your research, consider citing:
 ```
 @inproceedings{kim2023pairwisenet,
   title={PairwiseNet: Pairwise Collision Distance Learning for High-dof Robot Systems},
