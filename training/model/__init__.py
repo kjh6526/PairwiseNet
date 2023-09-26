@@ -3,6 +3,7 @@ import torch
 import torch.functional as F
 import sys, os
 
+from training.model.dgcnn import DGCNN
 from training.model.PairwiseNet import PairwiseNet
 
 def get_model(model_cfg, **kwargs):
@@ -14,10 +15,15 @@ def get_model(model_cfg, **kwargs):
 def _get_model_instance(name):
     try:
         return {
+            'DGCNN': get_DGCNN,
             'PairwiseNet': get_PairwiseNet,
         }[name]
     except:
         raise (f'Model {name} not available.')
+
+def get_DGCNN(model_dict, **kwargs):
+    model = DGCNN(**model_dict, **kwargs)
+    return model
 
 def get_PairwiseNet(model_dict, **kwargs):
     encoder_cfg = model_dict.encoder

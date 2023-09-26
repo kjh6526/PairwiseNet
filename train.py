@@ -87,7 +87,6 @@ def run(cfg, writer):
         logger=logger,
         logdir=writer.file_writer.get_logdir(),
         env=env,
-        best_val_loss=best_val_loss,
     )
 
     loaded_state = torch.load(os.path.join(writer.file_writer.get_logdir(), 'model_best.pkl'))
