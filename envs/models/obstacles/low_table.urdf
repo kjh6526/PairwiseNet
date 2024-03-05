@@ -1,0 +1,176 @@
+<?xml version="1.0" ?>
+<robot name="plane">
+
+    <link name="link_plane">
+        <contact>
+            <lateral_friction value="1"/>
+        </contact>
+
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value=".0"/>
+            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+        </inertial>
+            
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.8 0.6 0.075"/>
+            </geometry>
+            <material name="table_gray"/>
+        </visual>
+
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.8 0.6 0.075"/>
+            </geometry>
+        </collision>
+        
+    </link>
+
+    <link name="link_leg1">
+        <contact>
+            <lateral_friction value="1"/>
+        </contact>
+
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value=".0"/>
+            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+        </inertial>
+            
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+            <material name="leg_gray"/>
+        </visual>
+
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+        </collision>
+        
+    </link>
+
+    <link name="link_leg2">
+        <contact>
+            <lateral_friction value="1"/>
+        </contact>
+
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value=".0"/>
+            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+        </inertial>
+            
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+            <material name="leg_gray"/>
+        </visual>
+
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+        </collision>
+        
+    </link>
+
+    <link name="link_leg3">
+        <contact>
+            <lateral_friction value="1"/>
+        </contact>
+
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value=".0"/>
+            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+        </inertial>
+            
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+            <material name="leg_gray"/>
+        </visual>
+
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+        </collision>
+        
+    </link>
+
+    <link name="link_leg4">
+        <contact>
+            <lateral_friction value="1"/>
+        </contact>
+
+        <inertial>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <mass value=".0"/>
+            <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+        </inertial>
+            
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+            <material name="leg_gray"/>
+        </visual>
+
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.06 0.06 0.75"/>
+            </geometry>
+        </collision>
+        
+    </link>
+
+    <joint name="fixed_joint1" type="fixed">
+        <parent link="link_plane"/>
+        <child link="link_leg1"/>
+        <origin rpy="0 0 0.0" xyz="0.37 0.27 -0.4125"/>
+    </joint>
+
+    <joint name="fixed_joint2" type="fixed">
+        <parent link="link_plane"/>
+        <child link="link_leg2"/>
+        <origin rpy="0 0 0.0" xyz="-0.37 0.27 -0.4125"/>
+    </joint>
+
+    <joint name="fixed_joint3" type="fixed">
+        <parent link="link_plane"/>
+        <child link="link_leg3"/>
+        <origin rpy="0 0 0.0" xyz="0.37 -0.27 -0.4125"/>
+    </joint>
+
+    <joint name="fixed_joint4" type="fixed">
+        <parent link="link_plane"/>
+        <child link="link_leg4"/>
+        <origin rpy="0 0 0.0" xyz="-0.37 -0.27 -0.4125"/>
+    </joint>
+
+    <material name="table_gray">
+        <color rgba=".6 .6 .6 0.7"/>
+    </material>
+
+    <material name="leg_gray">
+        <color rgba=".8 .8 .8 0.7"/>
+    </material>
+
+</robot>
