@@ -3,7 +3,7 @@ The official repository for \<A PairwiseNet: Pairwise Collision Distance Learnin
 
 > PairwiseNet is a novel method that estimates the pairwise collision distance between pairs of elements in a robot system, providing an alternative approach to data-driven methods that estimate the global collision distance.
 
-- *[Paper](https://openreview.net/forum?id=Id4b5SY1Y8)* 
+- *[Paper](https://proceedings.mlr.press/v229/kim23d.html)* 
 - *[Poster](https://drive.google.com/file/d/1OPQfOK1nq3hHV7oppfz5Sn-puHJUtl1q/view?usp=drive_link)*  
 - *[3-min Slide Video](https://youtu.be/YuotzrBn1ks?si=QavzqhQqoaMiPFJe)*  
 
