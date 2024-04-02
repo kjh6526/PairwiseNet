@@ -47,12 +47,14 @@ Adjust the generation settings in `data_config_multiarm.yml` as required.
 
 Also, generate the global collision distance dataset (used for testing) with:
 ```bash
-python generate_dataset_multiarm_global.py \
+python generate_dataset_global.py \
   --env configs/env/{env_config} \
-  --n_data {N}
+  --n_data {N} \
+  --n_pcd {n_pcd}
 ```
 - `env_config` is the configuration file (e.g., .yml) for the target robot system, such as `env_config_multipanda.yml`.
 - `N` denotes the number of data points (joint configurations) in the dataset.
+- `n_pcd` denotes the number of points in a single point cloud (using the same number as the training dataset is recommended). 
 
 ## Training
 
