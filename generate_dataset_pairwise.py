@@ -7,6 +7,7 @@ import warnings
 warnings.simplefilter("ignore")
 
 from datetime import datetime
+
 import pybullet as p
 import open3d as o3d
 
@@ -16,9 +17,8 @@ import plotly.io as pio
 plotly_layout = dict(margin=dict(l=20, r=20, t=20, b=20))
 
 from envs import get_env
-from envs.models.panda.panda import Panda
 from envs.lib.LieGroup import invSE3
-from utils import progress_tracker
+from utils import save_yaml
 
 def parse_arg_type(val):
     if val.isnumeric():
@@ -61,82 +61,32 @@ def parse_nested_args(d_cmd_cfg):
                 d = d[each_key]
     return d_new_cfg
         
-def run(cfg, PATH):
+def run(env, n_data, n_pcd, PATH):
     
-    n_data = cfg.n_data
-    n_pcd = cfg.n_pcd
-    hand = cfg.hand
+    collision_pairs = torch.tensor(env.collision_pairs)
+    
+    n_collision_pairs = len(collision_pairs)
+    n_sample = int(np.ceil(n_data / n_collision_pairs))
+    pair_indices = torch.stack([collision_pairs]*n_sample, dim=0) 
+    
+    q_min = torch.as_tensor(env.q_min).squeeze()
+    q_max = torch.as_tensor(env.q_max).squeeze()
+    data_q = torch.rand(n_sample, env.n_dof) * (q_max-q_min).repeat(n_sample, 1) + q_min.repeat(n_sample, 1)
+    
+    distances = env.calculate_distance_between_objects(data_q, collision_pairs, pbar=True)
+    
+    data_SE3 = env.get_Ts_objects(data_q)
 
-    n_radius = cfg.n_radius
-    radius_range = cfg.radius_range
+    T_1 = data_SE3[:, pair_indices[0, :, 0]]
+    T_2 = data_SE3[:, pair_indices[0, :, 1]]
     
-    n_theta = cfg.n_theta
-    theta_range = cfg.theta_range
+    distances = distances.view(n_sample*n_collision_pairs, 1)[:n_data]
+    pair_indices = pair_indices.view(n_sample*n_collision_pairs, 2)[:n_data]
+    T_1 = T_1.view(n_sample*n_collision_pairs, 4, 4)[:n_data]
+    T_2 = T_2.view(n_sample*n_collision_pairs, 4, 4)[:n_data]
     
-    n_phi = cfg.n_phi
-    phi_range = cfg.phi_range
-    
-    n_env = n_radius*n_theta*n_phi
-    
-    n_data_per_env = int(np.ceil(n_data / n_env))
-
-    pair_indices_list = [None]*n_env
-    T_12_list = [None]*n_env
-    distances_list = [None]*n_env
-    
-    env_idx = 0
-    
-    pbar = progress_tracker(total=n_env, desc='n_env', ncols=100)
-    
-    for radius in np.linspace(*radius_range, n_radius):
-        for theta in np.linspace(*theta_range, n_theta):
-            for phi in np.linspace(*phi_range, n_phi):
-
-                env_cfg = {
-                    'name': 'multipanda',
-                    'base_poses': [
-                        [0, 0, 0],
-                        [radius*np.cos(theta), radius*np.sin(theta), 0]
-                    ],
-                    'base_orientations': [0, phi],
-                    'hand': hand,
-                }
-            
-                env = get_env(env_cfg=env_cfg)
-                
-                collision_pairs = torch.tensor(env.collision_pairs)
-                
-                n_collision_pairs = len(collision_pairs)
-                n_sample = int(np.ceil(n_data_per_env / n_collision_pairs))
-                pair_indices = torch.stack([collision_pairs]*n_sample, dim=0) 
-                
-                q_min = torch.as_tensor(env.q_min).squeeze()
-                q_max = torch.as_tensor(env.q_max).squeeze()
-                data_q = torch.rand(n_sample, env.n_dof) * (q_max-q_min).repeat(n_sample, 1) + q_min.repeat(n_sample, 1)
-                
-                distances = env.calculate_distance_between_objects(data_q, collision_pairs, pbar=False)
-                
-                data_SE3 = env.get_Ts_objects(data_q)
-
-                T_1 = data_SE3[:, pair_indices[0, :, 0]]
-                T_2 = data_SE3[:, pair_indices[0, :, 1]]
-                
-                distances = distances.view(n_sample*n_collision_pairs, 1)[:n_data_per_env]
-                pair_indices = pair_indices.view(n_sample*n_collision_pairs, 2)[:n_data_per_env]
-                T_1 = T_1.view(n_sample*n_collision_pairs, 4, 4)[:n_data_per_env]
-                T_2 = T_2.view(n_sample*n_collision_pairs, 4, 4)[:n_data_per_env]
-                
-                T_1_inv = invSE3(T_1)
-                T_12 = torch.einsum('bij, bjk -> bik', T_1_inv, T_2)
-
-                pair_indices_list[env_idx] = pair_indices
-                T_12_list[env_idx] = T_12
-                distances_list[env_idx] = distances
-                
-                env_idx += 1
-                pbar.update(env_idx)
-    
-    pbar.close()
+    T_1_inv = invSE3(T_1)
+    T_12 = torch.einsum('bij, bjk -> bik', T_1_inv, T_2)
     
     mesh_pcd_path = os.path.join(PATH, 'pcds')
     os.makedirs(mesh_pcd_path)
@@ -158,11 +108,7 @@ def run(cfg, PATH):
             torch.save(pcd_object, pcd_file)
         
         torch.save(pcd_object, os.path.join(mesh_pcd_path, f'pcd_{o_idx}.pt'))
-        
-    distances = torch.cat(distances_list, dim=0)
-    T_12 = torch.cat(T_12_list, dim=0)
-    pair_indices = torch.cat(pair_indices_list, dim=0)
-            
+    
     print(f'distance : {distances.shape}')
     print(f'pair_indices : {pair_indices.shape}')
     print(f'T_12 : {T_12.shape}')
@@ -172,24 +118,34 @@ def run(cfg, PATH):
     torch.save(T_12, os.path.join(PATH, 'T_12.pt'))
 
     print(f'{n_data} points of pairwise collision distance data are successfully saved at {PATH}.')
-    print(f'Total {n_env} environments, {n_data_per_env} data points per environment.')
-    print(f'{n_sample} joint configurations are used per environment on average.')
+    print(f'{n_sample} joint configurations are used.')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str)
+    parser.add_argument("--env", type=str)
+    parser.add_argument("--n_data", type=int, default=10000)
+    parser.add_argument("--n_pcd", type=int, default=100)
     args, unknown = parser.parse_known_args()
     d_cmd_cfg = parse_unknown_args(unknown)
     d_cmd_cfg = parse_nested_args(d_cmd_cfg)
+    print(d_cmd_cfg)
     
-    cfg = OmegaConf.load(args.config)
+    n_data = args.n_data
+    n_pcd = args.n_pcd
+    cfg = OmegaConf.load(args.env)
     cfg = OmegaConf.merge(cfg, d_cmd_cfg)
-    print(cfg)
+    print(OmegaConf.to_yaml(cfg))
+    
+    env = get_env(cfg)
+    
+    env_fig = env.plot()
     
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_id = f'{run_id}_{cfg.n_data}_{cfg.n_pcd}'
+    run_id = f'{run_id}_pairwise_{n_data}'
     
-    dataset_path = os.path.join('datasets', 'Multiarm_Pairwise', run_id)
+    dataset_path = os.path.join('datasets', cfg.id, run_id)
     os.makedirs(dataset_path, exist_ok=False)
+    save_yaml(os.path.join(dataset_path, 'env_config.yml'), OmegaConf.to_yaml(cfg))
+    env_fig.write_image(os.path.join(dataset_path, 'env.png'))
 
-    run(cfg, dataset_path)
+    run(env, n_data, n_pcd, dataset_path)
