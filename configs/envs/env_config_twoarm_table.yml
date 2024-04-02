@@ -1,0 +1,15 @@
+id: twoarm_table          # identifier string of the environment
+
+name: multipanda      # name of the environment class
+base_poses:
+  - [0, 0, 0]
+  - [1.2, 0, 0]
+
+base_orientations:
+  - 0
+  - 3.1415
+
+obstacles:
+  name: 'high_table'
+  position: [0.6, 0.0, 0.22132]
+  orientation: [0, 0, 0, 1]

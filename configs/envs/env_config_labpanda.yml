@@ -1,0 +1,19 @@
+id: labpanda          # identifier string of the environment
+
+name: multipanda      # name of the environment class
+base_poses:
+  - [0, 0, 0]
+base_orientations:
+  - 0
+hand: True
+
+obstacles:
+  - name: low_table
+    position: [0.26, 0, -0.0495] 
+    orientation: 0.0
+  - name: high_table
+    position: [.89815, 0.20346, 0.22132] 
+    orientation: [-0.01028, -0.00131, -0.01,  0.9999]
+  - name: shelve
+    position: [0.10287, 0.8804, 0.00539] 
+    orientation: [-0.01252, 0.00214, 0.70997, -0.70411]

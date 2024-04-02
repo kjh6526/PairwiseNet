@@ -1,4 +1,6 @@
-name: multipanda
+id: fourarm          # identifier string of the environment
+
+name: multipanda      # name of the environment class
 base_poses:
   - [0, 0.5, 0]
   - [0, -0.5, 0]
