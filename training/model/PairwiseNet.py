@@ -148,37 +148,25 @@ class PairwiseNet(nn.Module):
         return {}
     
 class Pairwise2Global:
-    def __init__(self, model, cfg, env, link_pairs=None, **kwargs):
+    def __init__(self, model, cfg, env, **kwargs):
         self.model = model
         self.cfg = cfg
         self.device = self.model.get_device()
         self.env = env
         
-        if link_pairs is not None:
-            self.link_pairs = link_pairs
-        else:
-            link_pairs = []
-            links = list(range(env.n_dof)) + [(x+1)*(-1) for x in range(env.n_robot)]
-            for i_idx in links:
-                for j_idx in links[links.index(i_idx)+1:]:
-                    ri = int(i_idx / (-1))-1 if i_idx<0 else env.env_bullet.all2sep(i_idx)[0]
-                    rj = int(j_idx / (-1))-1 if j_idx<0 else env.env_bullet.all2sep(j_idx)[0]    
-                    if ri != rj:
-                        link_pairs.append([i_idx, j_idx])
-
-            self.link_pairs = torch.tensor(link_pairs)
+        self.collision_pairs = torch.tensor(env.collision_pairs)
         
         pcd1s = []
         pcd2s = []
-        for b_idx in range(len(link_pairs)):
-            pandalink1_idx = 0 if link_pairs[b_idx][0]<0 else env.env_bullet.all2sep(link_pairs[b_idx][0])[1]+1
-            pandalink2_idx = 0 if link_pairs[b_idx][1]<0 else env.env_bullet.all2sep(link_pairs[b_idx][1])[1]+1
+        for b_idx in range(len(self.collision_pairs)):
+            obj1_idx = self.collision_pairs[b_idx, 0]
+            obj2_idx = self.collision_pairs[b_idx, 1]
             
-            pcd1 = torch.load(os.path.join(self.cfg.data.training.root, 'meshes', f'pcd_{pandalink1_idx}.pt')).type(torch.float)
-            pcd2 = torch.load(os.path.join(self.cfg.data.training.root, 'meshes', f'pcd_{pandalink2_idx}.pt')).type(torch.float)
+            pcd1 = torch.load(os.path.join(self.cfg.data.test.root, 'pcds', f'pcd_{obj1_idx}.pt')).type(torch.float)
+            pcd2 = torch.load(os.path.join(self.cfg.data.test.root, 'pcds', f'pcd_{obj2_idx}.pt')).type(torch.float)
             pcd1s.append(pcd1)
             pcd2s.append(pcd2)
-
+            
         self.pcd1 = torch.stack(pcd1s, dim=0)
         self.pcd2 = torch.stack(pcd2s, dim=0)
 
@@ -191,14 +179,12 @@ class Pairwise2Global:
         assert self.env.n_dof == X.shape[1]
         
         n_data = len(X)
-        Ts = self.env.get_Ts(X).to(self.device)
-        T_bases = torch.stack(self.env.T_bases[::-1], dim=0).to(self.device)
-        SE3 = torch.cat([Ts, torch.stack([T_bases]*n_data, dim=0)], dim=1)
+        SE3 = self.env.get_Ts_objects(X).to(self.device)
 
-        n_pairs = len(self.link_pairs)
+        n_pairs = len(self.collision_pairs)
 
-        T_1 = SE3[:, self.link_pairs[:, 0]].view(n_data*n_pairs, 4, 4)
-        T_2 = SE3[:, self.link_pairs[:, 1]].view(n_data*n_pairs, 4, 4)
+        T_1 = SE3[:, self.collision_pairs[:, 0]].view(n_data*n_pairs, 4, 4)
+        T_2 = SE3[:, self.collision_pairs[:, 1]].view(n_data*n_pairs, 4, 4)
         T_12 = invSE3(T_1) @ T_2
 
         pcd1_embed_repeated = self.pcd1_embed.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
