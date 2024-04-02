@@ -15,7 +15,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-            <box size="0.392 0.803 0.022"/>
+                <mesh filename="mesh/shelve/shelve_bottom.obj"/>
+                <!-- <box size="0.392 0.803 0.022"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -23,7 +24,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-            <box size="0.392 0.803 0.022"/>
+                <mesh filename="mesh/shelve/shelve_bottom.obj"/>
+                <!-- <box size="0.392 0.803 0.022"/> -->
             </geometry>
         </collision>
         
@@ -43,7 +45,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.392 0.018 0.759"/>
+                <mesh filename="mesh/shelve/shelve_left.obj"/>
+                <!-- <box size="0.392 0.018 0.759"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -51,7 +54,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.392 0.018 0.759"/>
+                <mesh filename="mesh/shelve/shelve_left.obj"/>
+                <!-- <box size="0.392 0.018 0.759"/> -->
             </geometry>
         </collision>
         
@@ -71,7 +75,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-            <box size="0.392 0.018 0.759"/>
+                <mesh filename="mesh/shelve/shelve_right.obj"/>
+                <!-- <box size="0.392 0.018 0.759"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -79,7 +84,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.392 0.018 0.759"/>
+                <mesh filename="mesh/shelve/shelve_right.obj"/> 
+                <!-- <box size="0.392 0.018 0.759"/> -->
             </geometry>
         </collision>
         
@@ -99,7 +105,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.392 0.803 0.022"/>
+                <mesh filename="mesh/shelve/shelve_upper.obj"/>
+                <!-- <box size="0.392 0.803 0.022"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -107,7 +114,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.392 0.803 0.022"/>
+                <mesh filename="mesh/shelve/shelve_upper.obj"/>
+                <!-- <box size="0.392 0.803 0.022"/> -->
             </geometry>
         </collision>
         
@@ -127,7 +135,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.374 0.767 0.022"/>
+                <mesh filename="mesh/shelve/shelve_middle.obj"/>
+                <!-- <box size="0.374 0.767 0.022"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -135,7 +144,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.374 0.767 0.022"/>
+                <mesh filename="mesh/shelve/shelve_middle.obj"/>
+                <!-- <box size="0.374 0.767 0.022"/> -->
             </geometry>
         </collision>
         
@@ -155,7 +165,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.018 0.767 0.759"/>
+                <mesh filename="mesh/shelve/shelve_back.obj"/>
+                <!-- <box size="0.018 0.767 0.759"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -163,7 +174,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.018 0.767 0.759"/>
+                <mesh filename="mesh/shelve/shelve_back.obj"/>
+                <!-- <box size="0.018 0.767 0.759"/> -->
             </geometry>
         </collision>
         

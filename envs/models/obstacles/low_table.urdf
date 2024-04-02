@@ -15,7 +15,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.8 0.6 0.075"/>
+                <mesh filename="mesh/low_table/link_plane.obj"/>
+                <!-- <box size="0.8 0.6 0.075"/> -->
             </geometry>
             <material name="table_gray"/>
         </visual>
@@ -23,7 +24,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.8 0.6 0.075"/>
+                <mesh filename="mesh/low_table/link_plane.obj"/>
+                <!-- <box size="0.8 0.6 0.075"/> -->
             </geometry>
         </collision>
         
@@ -43,7 +45,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg1.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
             <material name="leg_gray"/>
         </visual>
@@ -51,7 +54,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg1.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
         </collision>
         
@@ -71,7 +75,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg2.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
             <material name="leg_gray"/>
         </visual>
@@ -79,7 +84,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg2.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
         </collision>
         
@@ -99,7 +105,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg3.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
             <material name="leg_gray"/>
         </visual>
@@ -107,7 +114,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg3.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
         </collision>
         
@@ -127,7 +135,8 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg4.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
             <material name="leg_gray"/>
         </visual>
@@ -135,7 +144,8 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <box size="0.06 0.06 0.75"/>
+                <mesh filename="mesh/low_table/link_leg4.obj"/>
+                <!-- <box size="0.06 0.06 0.75"/> -->
             </geometry>
         </collision>
         
