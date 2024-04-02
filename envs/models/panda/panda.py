@@ -9,11 +9,12 @@ from scipy.spatial.transform import Rotation as Rot
 from envs.lib.LieGroup import *
 
 class Panda:
-    def __init__(self, T_base=np.eye(4), T_ee=np.eye(4), hand=False, device='cpu', collision_shape='mesh', mesh_type='simplified'):
+    def __init__(self, T_base=np.eye(4), T_ee=np.eye(4), hand=False, finger=False, device='cpu', collision_shape='mesh', mesh_type='simplified'):
         
         self.n_dof = 7
         self.T_base = torch.as_tensor(T_base, dtype=torch.float).to(device)
         self.hand = hand
+        self.finger = finger
         
         # screws A_i, i-th screw described in i-th frame
         self.A = torch.tensor([ [0, 0, 0, 0, 0, 0, 0], 
@@ -69,8 +70,13 @@ class Panda:
             T_hand[:3, :3] = torch.as_tensor(Rot.from_euler('XYZ', [0.0, 0.0, -0.7854]).as_matrix())
             T_hand[:3, 3] = torch.as_tensor([0, 0, 0.107])
             self.M_hand =  T_hand.to(device)
-            
-            self.M_ee = self.M_hand @ torch.as_tensor(T_ee, dtype=torch.float).to(device)
+            if self.finger:
+                raise NotImplementedError
+            else:
+                T_finger = torch.eye(4, dtype=torch.float).to(device)
+                T_finger[:3, 3] = torch.as_tensor([0.0, 0.0, 0.09])
+                self.M_finger = T_finger.to(device)
+                self.M_ee = self.M_hand @ self.M_finger @ torch.as_tensor(T_ee, dtype=torch.float).to(device)
         else:
             self.M_ee = torch.as_tensor(T_ee, dtype=torch.float).to(device)
         
@@ -109,6 +115,13 @@ class Panda:
             self.meshes.append(o3d.io.read_triangle_mesh(os.path.join(MESH_PATH, f'hand.stl')))
             self.vertices.append(torch.tensor(np.asarray(self.meshes[-1].vertices), dtype=torch.float).to(device))
             self.triangles.append(torch.tensor(np.asarray(self.meshes[-1].triangles), dtype=torch.int).to(device))
+            
+            if self.finger:
+                raise NotImplementedError
+            else:
+                self.meshes.append(o3d.io.read_triangle_mesh(os.path.join(MESH_PATH, f'panda_fingerbox.obj')))
+                self.vertices.append(torch.tensor(np.asarray(self.meshes[-1].vertices), dtype=torch.float).to(device))
+                self.triangles.append(torch.tensor(np.asarray(self.meshes[-1].triangles), dtype=torch.int).to(device))
         
         self.collision_shape = collision_shape
         self.fclCollisionObjects = []
@@ -136,6 +149,8 @@ class Panda:
                 self.hppfclCollisionObjects.append(hppobj)
         
         elif self.collision_shape == 'capsule':
+            
+            assert not self.hand, 'Hand is not supported for capsule collision shape'
             
             p1_list = [
                 [-0.05465271, -0.00160026,  0.01809338],
@@ -205,9 +220,12 @@ class Panda:
         for i in range(self.n_dof):
             M_sb = M_sb @ M_[i, :, :] @ expSE3((self.A[:, i]*jointPos[i]).unsqueeze(0)).squeeze(0)
             T_sj[i] = self.T_base @ M_sb
-            
-        M_sb = M_sb @ self.M_ee
-        T_sb = self.T_base @ M_sb
+        
+        T_sb = self.T_base @ M_sb @ self.M_ee
+        if self.hand:
+            T_hand = self.T_base @ M_sb @ self.M_hand
+            T_finger = self.T_base @ M_sb @ self.M_hand @ self.M_finger
+            T_sj = torch.cat([T_sj, T_hand.unsqueeze(0), T_finger.unsqueeze(0)], dim=0)
         
         if return_T_link:
             return T_sb, T_sj
@@ -243,8 +261,16 @@ class Panda:
             # (b, 4, 4) @ (b, 4, 4) @ expSE3((b, 6) * (b, 6))
             T_sj[:, i] = T_base_ @ M_sb
             
-        M_sb = M_sb @ M_ee_
-        T_sb = T_base_ @ M_sb
+        T_sb = T_base_ @ M_sb @ M_ee_
+        
+        if self.hand:
+            M_hand_ = self.M_hand.unsqueeze(0).repeat_interleave(B, dim=0)
+            M_finger_ = self.M_finger.unsqueeze(0).repeat_interleave(B, dim=0)
+            
+            T_hand = T_base_ @ M_sb @ M_hand_
+            T_finger = T_base_ @ M_sb @ M_hand_ @ M_finger_
+            T_sj = torch.cat([T_sj, T_hand.unsqueeze(1), T_finger.unsqueeze(1)], dim=1)
+            
         if return_T_link:
             return T_sb, T_sj
         else:
@@ -263,7 +289,7 @@ class Panda:
         
         n_vertices = len(self.vertices[0])
         
-        for i in range(1, 8):
+        for i in range(1, len(self.vertices)):
             V = self.vertices[i]
             V = (T_sj[i-1, :3, :3] @ V.T + T_sj[i-1, :3, 3].unsqueeze(-1).repeat(1, len(V))).T
 
@@ -311,16 +337,35 @@ class Panda:
     
     def hppfcl_objs(self, jointPos, **kwargs):
         _, T_sj = self.solveForwardKinematics(jointPos, return_T_link=True)
+        
+        type = kwargs.get('type', self.collision_shape)
+        
+        if type == 'mesh':
             
-        for idx in range(len(self.hppfclCollisionObjects)):
-            if idx == 0:
-                Transform = self.T_base
-            else:
-                Transform = T_sj[idx-1]
-            tmp_transform = hppfcl.Transform3f.Identity()
-            tmp_transform.setRotation(Transform[:3, :3].cpu().numpy())
-            tmp_transform.setTranslation(Transform[:3, 3].cpu().numpy())
-            
-            self.hppfclCollisionObjects[idx].setTransform(tmp_transform)
+            for idx in range(len(self.hppfclCollisionObjects)):
+                if idx == 0:
+                    Transform = self.T_base
+                else:
+                    Transform = T_sj[idx-1]
+                    
+                tmp_transform = hppfcl.Transform3f.Identity()
+                tmp_transform.setRotation(Transform[:3, :3].cpu().numpy())
+                tmp_transform.setTranslation(Transform[:3, 3].cpu().numpy())
+                
+                self.hppfclCollisionObjects[idx].setTransform(tmp_transform)
+                
+        elif type == 'capsule':
+                
+            for idx in range(len(self.hppfclCollisionObjects)):
+                if idx == 0:
+                    Transform = self.T_base @ self.T_capsule[idx]
+                else:
+                    Transform = T_sj[idx-1] @ self.T_capsule[idx]
+                    
+                tmp_transform = hppfcl.Transform3f.Identity()
+                tmp_transform.setRotation(Transform[:3, :3].cpu().numpy())
+                tmp_transform.setTranslation(Transform[:3, 3].cpu().numpy())
+                
+                self.hppfclCollisionObjects[idx].setTransform(tmp_transform)
 
         return self.hppfclCollisionObjects
