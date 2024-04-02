@@ -1,10 +1,12 @@
 n_data: 3000000
 n_pcd: 100
 
+hand: False # True for Panda hand
+
 # Relative position of two Panda robot
 # Random 
 n_radius: 5
-radius_range: [0.1, 1]
+radius_range: [0.5, 1]
 
 n_theta: 8
 theta_range: [0, 2.7489] # 2*PI * 7/8
