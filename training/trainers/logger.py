@@ -5,7 +5,6 @@
 #############################################
 
 from utils import averageMeter
-import wandb
 
 class BaseLogger:
     """BaseLogger that can handle most of the logging
@@ -15,7 +14,7 @@ class BaseLogger:
     endswith('_') : scalar
     endswith('@') : image
     """
-    def __init__(self, tb_writer, cfg, endwith=[], wandblog=False):
+    def __init__(self, tb_writer, endwith=[]):
         """tb_writer: tensorboard SummaryWriter"""
         self.writer = tb_writer
         self.endwith = endwith
@@ -23,18 +22,6 @@ class BaseLogger:
         self.val_loss_meter = averageMeter()
         self.d_train = {}
         self.d_val = {}
-        self.wandblog = wandblog
-        self.cfg = cfg
-        if self.wandblog:
-            config = {
-                'epochs': self.cfg.training.n_epoch,
-                'seed': self.cfg.training.seed,
-                'train_batch' : self.cfg.data.training.batch_size,
-                'lr' : self.cfg.training.optimizer.lr
-                #ADD Confing to Sweep for auto parameter tuning
-            }
-            wandb.init(project=self.cfg.id, config=config)
-            wandb.save("configs/training/*")
 
     def process_iter_train(self, d_result):
         self.train_loss_meter.update(d_result['loss'])
@@ -53,8 +40,6 @@ class BaseLogger:
         self.d_train = {}
         if reset:
             self.reset_train()
-        if self.wandblog:
-            wandb.log(result, step=i) #log summary loss 
         return result
 
     def process_iter_val(self, d_result):
@@ -73,8 +58,7 @@ class BaseLogger:
             if key.endswith('@') and ('@' in self.endwith):
                 if val is not None:
                     self.writer.add_image(key, val, i)
-        if self.wandblog: 
-            wandb.log(d_val, step=i) #log evaluation loss
+
         print_str = ' '.join(l_print_str)
 
         result = d_val
@@ -99,6 +83,3 @@ class BaseLogger:
             if key.endswith('@') and ('@' in self.endwith):
                 if val is not None:
                     self.writer.add_image(key, val, i)
-        
-        if self.wandblog:
-            wandb.log(d_result, step=i) #log evaluation result

@@ -10,6 +10,6 @@ base_orientations:
   - 3.1415
 
 obstacles:
-  - name: 'high_table'
-    position: [0.6, 0.0, 0.22132]
-    orientation: [0, 0, 0, 1]
+  name: 'high_table'
+  position: [0.6, 0.0, 0.22132]
+  orientation: [0, 0, 0, 1]
