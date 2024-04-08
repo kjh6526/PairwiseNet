@@ -3,6 +3,7 @@ logdir: 'results'
 logger: 
   type: 'base'
   endwith: ['@']
+  wandblog: True #True to use WandB 
 
 model:
   name: 'PairwiseNet'
