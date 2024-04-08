@@ -13,6 +13,7 @@ def get_trainer(optimizer, cfg):
 def get_logger(cfg, writer):
     logger_type = cfg["logger"].get("type", "base")
     endwith = cfg["logger"].get("endwith", [])
+    wandblog = cfg["logger"].get("wandblog", False)
     if logger_type in ["base"]:
-        logger = BaseLogger(writer, endwith=endwith)
+        logger = BaseLogger(writer, cfg=cfg, endwith=endwith, wandblog=wandblog)
     return logger

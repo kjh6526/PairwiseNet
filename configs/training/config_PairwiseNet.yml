@@ -1,9 +1,9 @@
 logdir: 'results'
-
+id: 'Pairwise-Multiarm'
 logger: 
   type: 'base'
   endwith: ['@']
-
+  wandblog: True #True when using wandb
 model:
   name: 'PairwiseNet'
   encoder:
@@ -27,7 +27,7 @@ model:
 data:
   training:
     dataset: 'pairwise'
-    root: 'datasets/Multiarm_Pairwise/20230926-105443_3000000_100'
+    root: 'datasets/labpanda/20240403-175056_pairwise_10000'
     batch_size: 1000
     n_workers: 4
     split: training
@@ -35,7 +35,7 @@ data:
 
   validation: 
     dataset: 'pairwise'
-    root: 'datasets/Multiarm_Pairwise/20230926-105443_3000000_100'
+    root: 'datasets/labpanda/20240403-175056_pairwise_10000'
     batch_size: 1000
     n_workers: 4
     split: validation
@@ -43,7 +43,7 @@ data:
   
   test:
     dataset: 'global'
-    root: 'datasets/multipanda/20230926-110421_28DOF_1000000'
+    root: 'datasets/labpanda/20240403-175923_global_10000'
     batch_size: 1000
     n_workers: 4
     split: all
@@ -60,5 +60,5 @@ training:
     name: 'mse'
 
   print_interval: 100
-  val_interval: 10000
+  val_interval: 100
   visualize_interval: 100000
