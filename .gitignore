@@ -165,3 +165,6 @@ datasets
 *debug.py
 results
 wandb
+
+# old codes
+*_old.*
