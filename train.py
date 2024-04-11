@@ -107,7 +107,7 @@ if __name__ == "__main__":
     cfg = OmegaConf.merge(cfg, d_cmd_cfg)
     env_cfg = OmegaConf.load(os.path.join(cfg.data.test.root, 'env_config.yml'))
     cfg['env'] = env_cfg
-    print(OmegaConf.to_yaml(cfg))
+    cfg.logger.project = cfg.env.id
 
     if args.device == "cpu":
         cfg["device"] = f"cpu"
@@ -118,7 +118,8 @@ if __name__ == "__main__":
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
     else:
         run_id = datetime.now().strftime("%Y%m%d-%H%M%S_") + args.run
-
+    cfg.logger.run_id = run_id
+    
     config_basename = os.path.basename(args.config).split(".")[0]
     
     if hasattr(cfg, "logdir"):
@@ -126,13 +127,15 @@ if __name__ == "__main__":
     else:
         logdir = args.logdir
     logdir = os.path.join(logdir, run_id)
-
     writer = SummaryWriter(logdir=logdir)
     print("Result directory: {}".format(logdir))
 
     # copy config file
     copied_yml = os.path.join(logdir, os.path.basename(args.config))
+    cfg.logger.config_file = copied_yml
     save_yaml(copied_yml, OmegaConf.to_yaml(cfg))
+    
+    print(OmegaConf.to_yaml(cfg))
     print(f"config saved as {copied_yml}")
 
     run(cfg, writer)
