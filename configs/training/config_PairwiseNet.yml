@@ -4,6 +4,7 @@ logger:
   type: 'base'
   endwith: ['@']
   wandblog: True #True to use WandB 
+  wandbconfig: ['train_dataset'] # WandB key
 
 model:
   name: 'PairwiseNet'
@@ -28,7 +29,7 @@ model:
 data:
   training:
     dataset: 'pairwise'
-    root: 'datasets/Multiarm_Pairwise/20230926-105443_3000000_100'
+    root: 'datasets/labpanda/20240402-152753_pairwise_3000000'
     batch_size: 1000
     n_workers: 4
     split: training
@@ -36,7 +37,7 @@ data:
 
   validation: 
     dataset: 'pairwise'
-    root: 'datasets/Multiarm_Pairwise/20230926-105443_3000000_100'
+    root: 'datasets/labpanda/20240402-152753_pairwise_3000000'
     batch_size: 1000
     n_workers: 4
     split: validation
@@ -44,7 +45,7 @@ data:
   
   test:
     dataset: 'global'
-    root: 'datasets/multipanda/20230926-110421_28DOF_1000000'
+    root: 'datasets/labpanda/20240402-154342_global_1000000'
     batch_size: 1000
     n_workers: 4
     split: all
@@ -61,5 +62,5 @@ training:
     name: 'mse'
 
   print_interval: 100
-  val_interval: 10000
-  visualize_interval: 100000
+  val_interval: 1000
+  visualize_interval: 1000

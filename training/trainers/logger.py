@@ -4,7 +4,7 @@
 #                                           #
 #############################################
 
-from utils import averageMeter
+from utils import averageMeter, get_info_from_cfg
 import wandb
 
 class BaseLogger:
@@ -15,26 +15,24 @@ class BaseLogger:
     endswith('_') : scalar
     endswith('@') : image
     """
-    def __init__(self, tb_writer, cfg, endwith=[], wandblog=False):
+    def __init__(self, tb_writer, cfg):
         """tb_writer: tensorboard SummaryWriter"""
         self.writer = tb_writer
-        self.endwith = endwith
+        
         self.train_loss_meter = averageMeter()
         self.val_loss_meter = averageMeter()
         self.d_train = {}
         self.d_val = {}
-        self.wandblog = wandblog
         self.cfg = cfg
+        self.wandblog = cfg.logger.wandblog
         if self.wandblog:
-            config = {
-                'epochs': self.cfg.training.n_epoch,
-                'seed': self.cfg.training.seed,
-                'train_batch' : self.cfg.data.training.batch_size,
-                'lr' : self.cfg.training.optimizer.lr
-                #ADD Confing to Sweep for auto parameter tuning
-            }
-            wandb.init(project=self.cfg.id, config=config)
-            wandb.save("configs/training/*")
+            project_name = cfg.logger.project
+            run_name     = cfg.logger.run_id
+            config_file  = cfg.logger.config_file
+            wandbconfig  = cfg.logger.get('wandbconfig', [])
+
+            wandb.init(project=project_name, config=get_info_from_cfg(self.cfg, wandbconfig), name=run_name)
+            wandb.save(config_file)
 
     def process_iter_train(self, d_result):
         self.train_loss_meter.update(d_result['loss'])
@@ -45,7 +43,7 @@ class BaseLogger:
         for key, val in self.d_train.items():
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
-            if key.endswith('@') and ('@' in self.endwith):
+            if key.endswith('@'):
                 if val is not None:
                     self.writer.add_image(key, val, i)
 
@@ -70,7 +68,7 @@ class BaseLogger:
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
                 l_print_str.append(f'\t{key[:-1]}: {val:.4f}')
-            if key.endswith('@') and ('@' in self.endwith):
+            if key.endswith('@'):
                 if val is not None:
                     self.writer.add_image(key, val, i)
         if self.wandblog: 
@@ -96,7 +94,7 @@ class BaseLogger:
         for key, val in d_result.items():
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
-            if key.endswith('@') and ('@' in self.endwith):
+            if key.endswith('@'):
                 if val is not None:
                     self.writer.add_image(key, val, i)
         

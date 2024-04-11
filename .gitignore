@@ -164,3 +164,4 @@ datasets
 *debug.ipynb
 *debug.py
 results
+wandb
