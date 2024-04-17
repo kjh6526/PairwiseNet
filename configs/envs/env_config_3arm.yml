@@ -1,0 +1,20 @@
+id: 3arm          # identifier string of the environment
+
+name: multipanda      # name of the environment class
+base_poses:
+  - [0, 0, 0]
+  - [1.2, 0, 0]
+  - [0.6, -0.4, 0.23]
+base_orientations:
+  - 0
+  - 3.1415
+  - 1.5707
+hand: True
+
+obstacles:
+  - name: high_table
+    position: [.6, 0.0, 0.22132] 
+    orientation: [0, 0, 0, 1]
+  - name: shelve
+    position: [0.5287, 0.7204, 0.2539] 
+    orientation: [-0.01252, 0.00214, 0.70997, -0.70411]
