@@ -74,6 +74,9 @@ class MultiPanda:
         self.q = torch.zeros(self.n_dof)
         self.device = device
         
+        # Set initial configuration
+        self.set_inputs(self.q)
+        
         # Obstacles
         self.obstacles = []
         for body_info in self.env_bullet.bodies:
@@ -147,6 +150,17 @@ class MultiPanda:
         assert len(q) == self.n_dof
         self.q = torch.as_tensor(q).to(self.device)
         self.env_bullet.reset2TargetPositions(self.q.detach().cpu())
+        
+        start_idx = 0
+        for r_idx in range(self.n_robot):
+            fcl_objs = self.robots[r_idx].fcl_objs(jointPos=self.q[start_idx:start_idx+self.robots[r_idx].n_dof])
+            hppfcl_objs = self.robots[r_idx].hppfcl_objs(jointPos=self.q[start_idx:start_idx+self.robots[r_idx].n_dof])
+            for body_info in self.env_bullet.bodies:
+                if body_info['name'] == f'robot_{r_idx}':
+                    body_info['fcl_objs'] = fcl_objs
+                    body_info['hppfcl_objs'] = hppfcl_objs
+                    break
+            start_idx += self.robots[r_idx].n_dof
         
     def get_Ts(self, x):
         if not isinstance(x, torch.Tensor):
@@ -343,7 +357,7 @@ class MultiPanda:
             
         return output
     
-    def calculate_distance_between_objects(self, X, collision_pairs, pbar=False):
+    def calculate_distance_between_objects(self, X, collision_pairs, mode='bullet', pbar=False):
         if isinstance(X, torch.Tensor):
             output = torch.zeros(len(X), len(collision_pairs), 1).to(X).type(torch.float)
             X = X.detach().cpu().numpy()
@@ -353,7 +367,37 @@ class MultiPanda:
         for b_idx in trange(len(X), disable=not pbar, desc='Min.dist', ncols=100):
             self.set_inputs(X[b_idx])
             for ls_idx, objects in enumerate(collision_pairs):
-                output[b_idx, ls_idx] = self.env_bullet.get_distance_between_objects(objects[0], objects[1])
+                if mode == 'bullet':
+                    output[b_idx, ls_idx] = self.env_bullet.get_distance_between_objects(objects[0], objects[1])
+                elif mode == 'fcl':
+                    b1ID, l1ID = self.env_bullet.idx2id(objects[0])
+                    b2ID, l2ID = self.env_bullet.idx2id(objects[1])
+                    b1_info = self.env_bullet.body_dict[b1ID]
+                    b2_info = self.env_bullet.body_dict[b2ID]
+                    
+                    fcl_obj1 = b1_info['fcl_objs'][b1_info['links'].index(l1ID)]
+                    fcl_obj2 = b2_info['fcl_objs'][b2_info['links'].index(l2ID)]
+                    
+                    request = fcl.CollisionRequest(enable_contact=True, enable_cost=True)
+                    result = fcl.CollisionResult()
+
+                    n_contact = fcl.collide(fcl_obj1, fcl_obj2, request, result)
+                    if result.is_collision:
+                        max_pd_depth = -1e10
+                        for contact in result.contacts:
+                            if contact.penetration_depth > max_pd_depth:
+                                max_pd_depth = contact.penetration_depth
+                        dist = -max_pd_depth
+                    else:
+                        request = fcl.DistanceRequest(enable_nearest_points=True)
+                        result = fcl.DistanceResult()
+                        _ = fcl.distance(fcl_obj1, fcl_obj2, request, result)
+                        dist = result.min_distance
+                    
+                    output[b_idx, ls_idx] = dist
+                    
+                else:
+                    raise NotImplementedError
                 
         return output
     
