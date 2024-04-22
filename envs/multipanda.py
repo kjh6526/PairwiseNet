@@ -170,7 +170,7 @@ class MultiPanda:
                 
         return output
     
-    def get_Ts_objects(self, x, object_indices='all'):
+    def get_Ts_objects(self, x):
         
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x, dtype=torch.float)
