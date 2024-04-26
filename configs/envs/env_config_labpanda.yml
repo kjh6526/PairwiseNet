@@ -17,3 +17,7 @@ obstacles:
   - name: shelve
     position: [0.10287, 0.8804, 0.00539] 
     orientation: [-0.01252, 0.00214, 0.70997, -0.70411]
+
+collision_pairs_config:
+  n_configurations: 1000000
+  safe_thr: 0.01

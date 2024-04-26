@@ -35,6 +35,8 @@ class MultiPanda:
         device = kwargs.get('device', 'cpu')
         self.device = device
         
+        self.id = kwargs.get('id', 'multipanda')
+        
         # Robots
         self.robots = []
         self.n_robot = len(base_poses)
@@ -142,9 +144,9 @@ class MultiPanda:
                 body_info['hppfcl_objs'] = tmphppfclCollisionObjects
                 self.obstacles.append(body_info)
         
-        
-        self.plot_width = 800
-        self.plot_height = 800
+        self.verbose = kwargs.get('verbose', False)
+        collision_pairs_config = kwargs.get('collision_pairs_config', {})
+        self._check_valid_collision_pairs(**collision_pairs_config, pbar=self.verbose)
         
     def set_inputs(self, q):
         assert len(q) == self.n_dof
@@ -185,6 +187,15 @@ class MultiPanda:
         return output
     
     def get_Ts_objects(self, x):
+        """_summary_
+        calculate the SE3 matrices of the objects in the environment with the given joint configurations
+
+        Args:
+            x (torch.Tensor): joint configurations, (n_data, n_dof)
+
+        Returns:
+            T_objects (torch.Tensor): the SE3 matrices of the objects in the environment with the given joint configurations
+        """
         
         if not isinstance(x, torch.Tensor):
             x = torch.tensor(x, dtype=torch.float)
@@ -230,6 +241,15 @@ class MultiPanda:
         return img
     
     def get_mindist(self, mode='bullet'):
+        """_summary_
+        calculate the global collision distance with the current joint configuration
+        
+        Args:
+            mode (str, optional): distance calculation method. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
         
         if mode == 'fcl':
             fcl_mgrs = []
@@ -341,6 +361,17 @@ class MultiPanda:
         return min_distance
         
     def calculate_min_distance(self, X, pbar=False, mode='bullet'):
+        """_summary_
+        looping wrapper for get_mindist: calculate the global collision distance with the given joint configurations
+
+        Args:
+            X (torch.Tensor or np.ndarray): joint configurations, (n_data, n_dof)
+            pbar (bool, optional): distance calculation method. Defaults to False.
+            mode (str, optional): tqdm progress bar. Defaults to 'bullet'.
+
+        Returns:
+            torch.Tensor or np.ndarray (same type with X): global collision distances, (n_data, 1)
+        """
         # X : (batch, N_DOF)
         if isinstance(X, torch.Tensor):
             output = torch.zeros(len(X), 1).to(X).type(torch.float)
@@ -358,6 +389,21 @@ class MultiPanda:
         return output
     
     def calculate_distance_between_objects(self, X, collision_pairs, mode='bullet', pbar=False):
+        """_summary_
+        calculate the collision distances of the given collision pairs with the given joint configurations 
+
+        Args:
+            X (torch.Tensor or np.ndarray): joint configurations, (n_data, n_dof)
+            collision_pairs (torch.Tensor or list): collision pairs to be calculated
+            mode (str, optional): distance calculation method. Defaults to 'bullet'.
+            pbar (bool, optional): tqdm progress bar. Defaults to False.
+
+        Raises:
+            NotImplementedError: mode not in ['bullet', 'fcl']
+
+        Returns:
+            torch.Tensor or np.ndarray (same type with X): pairwise collision distances, (n_data, n_pairs, 1)
+        """
         if isinstance(X, torch.Tensor):
             output = torch.zeros(len(X), len(collision_pairs), 1).to(X).type(torch.float)
             X = X.detach().cpu().numpy()
@@ -402,8 +448,42 @@ class MultiPanda:
         return output
     
     def plot(self):
+        """_summary_
+
+        Returns:
+            Plotly Figure: Plotly figure object of the image of the environment
+        """
         img = self.get_image(width=1280, height=720, yaw=45)
         fig = go.Figure(go.Image(z=img)).update_layout(**plotly_layout, width=1280, height=720)
         return fig
     
-    
+    def _check_valid_collision_pairs(self, n_configurations=1000000, safe_thr=0.0, mode='bullet', pbar=True):
+        """_summary_
+        remove collision pairs that are not possible to collide
+        
+        Args:
+            n_configurations (int, optional): number of configurations to check for collision. Defaults to 10000.
+            safe_thr (float, optional): safe threshold. Defaults to 0.01.
+            pbar (bool, optional): whether to show a progress bar. Defaults to False.
+        """
+        min_distances_of_pairs_path = f'./envs/min_distances_of_pairs/{self.id}_N{n_configurations}.pt'
+        all_pairs = self.env_bullet.collision_pairs
+        try:
+            min_distances = torch.load(min_distances_of_pairs_path)
+        except:
+            if self.verbose:
+                print('precalculated min distances of pairs not found. calculating min distances...')
+                
+            q_min = torch.as_tensor(self.q_min).squeeze()
+            q_max = torch.as_tensor(self.q_max).squeeze()
+            data_q = torch.rand(n_configurations, self.n_dof) * (q_max-q_min).repeat(n_configurations, 1) + q_min.repeat(n_configurations, 1)
+            distances = self.calculate_distance_between_objects(data_q, all_pairs, pbar=pbar, mode=mode)
+            
+            min_distances = distances.min(dim=0).values.squeeze()
+            os.makedirs('./envs/min_distances_of_pairs', exist_ok=True)
+            torch.save(min_distances, min_distances_of_pairs_path)
+            
+        col_mask = min_distances < safe_thr
+        col_pairs = torch.tensor(all_pairs)[col_mask]
+        self.collision_pairs = col_pairs
+        
