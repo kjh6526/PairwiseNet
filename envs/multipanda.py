@@ -148,21 +148,22 @@ class MultiPanda:
         collision_pairs_config = kwargs.get('collision_pairs_config', {})
         self._check_valid_collision_pairs(**collision_pairs_config, pbar=self.verbose)
         
-    def set_inputs(self, q):
+    def set_inputs(self, q, skip_fcl=False):
         assert len(q) == self.n_dof
         self.q = torch.as_tensor(q).to(self.device)
         self.env_bullet.reset2TargetPositions(self.q.detach().cpu())
         
-        start_idx = 0
-        for r_idx in range(self.n_robot):
-            fcl_objs = self.robots[r_idx].fcl_objs(jointPos=self.q[start_idx:start_idx+self.robots[r_idx].n_dof])
-            hppfcl_objs = self.robots[r_idx].hppfcl_objs(jointPos=self.q[start_idx:start_idx+self.robots[r_idx].n_dof])
-            for body_info in self.env_bullet.bodies:
-                if body_info['name'] == f'robot_{r_idx}':
-                    body_info['fcl_objs'] = fcl_objs
-                    body_info['hppfcl_objs'] = hppfcl_objs
-                    break
-            start_idx += self.robots[r_idx].n_dof
+        if not skip_fcl:
+            start_idx = 0
+            for r_idx in range(self.n_robot):
+                fcl_objs = self.robots[r_idx].fcl_objs(jointPos=self.q[start_idx:start_idx+self.robots[r_idx].n_dof])
+                hppfcl_objs = self.robots[r_idx].hppfcl_objs(jointPos=self.q[start_idx:start_idx+self.robots[r_idx].n_dof])
+                for body_info in self.env_bullet.bodies:
+                    if body_info['name'] == f'robot_{r_idx}':
+                        body_info['fcl_objs'] = fcl_objs
+                        body_info['hppfcl_objs'] = hppfcl_objs
+                        break
+                start_idx += self.robots[r_idx].n_dof
         
     def get_Ts(self, x):
         if not isinstance(x, torch.Tensor):
@@ -383,7 +384,7 @@ class MultiPanda:
             output = torch.zeros(len(X), 1).to(X).type(torch.float)
             
         for b_idx in trange(len(X), disable=not pbar, desc='Min.dist', ncols=100):
-            self.set_inputs(X[b_idx])
+            self.set_inputs(X[b_idx], skip_fcl=(mode=='bullet'))
             output[b_idx] = self.get_mindist(mode=mode)
             
         return output
@@ -411,7 +412,7 @@ class MultiPanda:
             output = np.zeros((len(X), len(collision_pairs), 1))
             
         for b_idx in trange(len(X), disable=not pbar, desc='Min.dist', ncols=100):
-            self.set_inputs(X[b_idx])
+            self.set_inputs(X[b_idx], skip_fcl=(mode=='bullet'))
             for ls_idx, objects in enumerate(collision_pairs):
                 if mode == 'bullet':
                     output[b_idx, ls_idx] = self.env_bullet.get_distance_between_objects(objects[0], objects[1])
