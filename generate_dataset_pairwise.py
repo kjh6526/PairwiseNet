@@ -118,7 +118,7 @@ def run(env, n_data, n_pcd, PATH):
     torch.save(T_12, os.path.join(PATH, 'T_12.pt'))
 
     print(f'{n_data} points of pairwise collision distance data are successfully saved at {PATH}.')
-    print(f'{n_sample} joint configurations are used.')
+    print(f'{n_collision_pairs} pairs in env, {n_sample} joint configurations are used.')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
