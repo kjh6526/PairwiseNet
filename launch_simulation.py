@@ -12,7 +12,7 @@ parser.add_argument("--env", type=str)
 args, unknown = parser.parse_known_args()
 
 env_cfg = OmegaConf.load(args.env)
-env = get_env(env_cfg, debug=True, GUI=True)
+env = get_env(env_cfg, debug=True, GUI=True, verbose=True)
 
 select_pair_sd = p.addUserDebugParameter("# of pairs", 0, len(env.collision_pairs)-1, 0)
 update_color_bt = p.addUserDebugParameter("Update color", 0, -1, 0)
