@@ -1,0 +1,23 @@
+id: 4arm_trap          # identifier string of the environment
+
+name: multipanda      # name of the environment class
+base_poses:
+  - [0, 0, 0]
+  - [0.6, -0.4, 0.0]
+  - [1.2, 0, 0]
+  - [0.6, 0.4, 0.0]
+base_orientations:
+  - 0
+  - 1.5707
+  - 3.1415
+  - 4.71239
+hand: True
+
+obstacles:
+  - name: trapezoid_box
+    position: [.6, 0.0, 0.22132] 
+    orientation: [0, 0, 0, 1]
+
+collision_pairs_config:
+  n_configurations: 1000000
+  safe_thr: 0.01
