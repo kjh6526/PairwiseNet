@@ -467,10 +467,15 @@ class MultiPanda:
             safe_thr (float, optional): safe threshold. Defaults to 0.01.
             pbar (bool, optional): whether to show a progress bar. Defaults to False.
         """
-        min_distances_of_pairs_path = f'./envs/min_distances_of_pairs/{self.id}_N{n_configurations}.pt'
+        
+        env_root = f'./envs/precomputed/{self.id}'
+        min_distances_of_pairs_path = os.path.join(env_root, f'min_distances_of_pairs_N{n_configurations}.pt')
+        min_pair_indices_path       = os.path.join(env_root, f'min_pair_indices_N{n_configurations}.pt')
         all_pairs = self.env_bullet.collision_pairs
         try:
-            min_distances = torch.load(min_distances_of_pairs_path)
+            min_distances_of_pairs = torch.load(min_distances_of_pairs_path)
+            min_pair_indices = torch.load(min_pair_indices_path)
+            col_mask = min_distances_of_pairs < safe_thr
         except:
             if self.verbose:
                 print('precalculated min distances of pairs not found. calculating min distances...')
@@ -480,11 +485,16 @@ class MultiPanda:
             data_q = torch.rand(n_configurations, self.n_dof) * (q_max-q_min).repeat(n_configurations, 1) + q_min.repeat(n_configurations, 1)
             distances = self.calculate_distance_between_objects(data_q, all_pairs, pbar=pbar, mode=mode)
             
-            min_distances = distances.min(dim=0).values.squeeze()
-            os.makedirs('./envs/min_distances_of_pairs', exist_ok=True)
-            torch.save(min_distances, min_distances_of_pairs_path)
+            min_distances_of_pairs = distances.min(dim=0).values.squeeze()
+            col_mask = min_distances_of_pairs < safe_thr
+            distances = distances[:, col_mask]
+            min_pair_indices = distances.argmin(dim=1).squeeze()
             
-        col_mask = min_distances < safe_thr
+            os.makedirs(env_root, exist_ok=True)
+            torch.save(min_distances_of_pairs, min_distances_of_pairs_path)
+            torch.save(min_pair_indices, min_pair_indices_path)
+            
         col_pairs = torch.tensor(all_pairs)[col_mask]
         self.collision_pairs = col_pairs
+        self.min_pair_indices = min_pair_indices
         
