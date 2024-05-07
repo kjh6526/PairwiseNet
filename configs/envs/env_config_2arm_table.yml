@@ -13,3 +13,7 @@ obstacles:
   - name: 'high_table'
     position: [0.6, 0.0, 0.22132]
     orientation: [0, 0, 0, 1]
+
+collision_pairs_config:
+  n_configurations: 1000000
+  safe_thr: 0.01

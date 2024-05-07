@@ -12,3 +12,7 @@ base_orientations:
   - 1.5708
   - 3.1415
   - 0.0
+
+collision_pairs_config:
+  n_configurations: 1000000
+  safe_thr: 0.01
