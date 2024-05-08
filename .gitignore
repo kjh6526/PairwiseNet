@@ -163,6 +163,7 @@ cython_debug/
 datasets
 *debug.ipynb
 *debug.py
+*debug*
 results
 wandb
 
