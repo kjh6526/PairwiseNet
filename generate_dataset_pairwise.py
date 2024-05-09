@@ -7,6 +7,7 @@ import warnings
 warnings.simplefilter("ignore")
 
 from datetime import datetime
+from tqdm import tqdm, trange
 
 import pybullet as p
 import open3d as o3d
@@ -61,32 +62,92 @@ def parse_nested_args(d_cmd_cfg):
                 d = d[each_key]
     return d_new_cfg
         
-def run(env, n_data, n_pcd, PATH):
+def run(env, n_data, n_pcd, PATH, pair_distribution):
     
     collision_pairs = torch.tensor(env.collision_pairs)
-    
     n_collision_pairs = len(collision_pairs)
-    n_sample = int(np.ceil(n_data / n_collision_pairs))
-    pair_indices = torch.stack([collision_pairs]*n_sample, dim=0) 
     
-    q_min = torch.as_tensor(env.q_min).squeeze()
-    q_max = torch.as_tensor(env.q_max).squeeze()
-    data_q = torch.rand(n_sample, env.n_dof) * (q_max-q_min).repeat(n_sample, 1) + q_min.repeat(n_sample, 1)
-    
-    distances = env.calculate_distance_between_objects(data_q, collision_pairs, pbar=True)
-    
-    data_SE3 = env.get_Ts_objects(data_q)
+    if pair_distribution == 'uniform':
+        n_sample = int(np.ceil(n_data / n_collision_pairs))
+        pair_indices = torch.stack([collision_pairs]*n_sample, dim=0) 
+        
+        q_min = torch.as_tensor(env.q_min).squeeze()
+        q_max = torch.as_tensor(env.q_max).squeeze()
+        data_q = torch.rand(n_sample, env.n_dof) * (q_max-q_min).repeat(n_sample, 1) + q_min.repeat(n_sample, 1)
+        
+        distances = env.calculate_distance_between_objects(data_q, collision_pairs, pbar=True)
+        
+        data_SE3 = env.get_Ts_objects(data_q)
 
-    T_1 = data_SE3[:, pair_indices[0, :, 0]]
-    T_2 = data_SE3[:, pair_indices[0, :, 1]]
-    
-    distances = distances.view(n_sample*n_collision_pairs, 1)[:n_data]
-    pair_indices = pair_indices.view(n_sample*n_collision_pairs, 2)[:n_data]
-    T_1 = T_1.view(n_sample*n_collision_pairs, 4, 4)[:n_data]
-    T_2 = T_2.view(n_sample*n_collision_pairs, 4, 4)[:n_data]
-    
-    T_1_inv = invSE3(T_1)
-    T_12 = torch.einsum('bij, bjk -> bik', T_1_inv, T_2)
+        T_1 = data_SE3[:, pair_indices[0, :, 0]]
+        T_2 = data_SE3[:, pair_indices[0, :, 1]]
+        
+        distances = distances.view(n_sample*n_collision_pairs, 1)[:n_data]
+        pair_indices = pair_indices.view(n_sample*n_collision_pairs, 2)[:n_data]
+        T_1 = T_1.view(n_sample*n_collision_pairs, 4, 4)[:n_data]
+        T_2 = T_2.view(n_sample*n_collision_pairs, 4, 4)[:n_data]
+        
+        T_1_inv = invSE3(T_1)
+        T_12 = torch.einsum('bij, bjk -> bik', T_1_inv, T_2)
+        
+    elif pair_distribution == 'actual':
+        """
+        distribution of collision pairs follows the probability of being the minimum distance of each pair
+        more the pair is likely to be in collision, more the pair is sampled
+        """
+        
+        bin_counts, bin_edges = np.histogram(env.min_pair_indices, bins=len(env.collision_pairs))
+        acceptance_prob = torch.tensor(bin_counts / bin_counts.max())
+
+        pbar = tqdm(total=n_data, ncols=100)
+        cumulated_n_data = 0
+        T_12_list = []
+        pair_indices_list = []
+        distances_list = []
+        n_sample = 0
+        
+        while True:
+            pair_indices = torch.stack([collision_pairs], dim=0) 
+
+            q_min = torch.as_tensor(env.q_min).squeeze()
+            q_max = torch.as_tensor(env.q_max).squeeze()
+            data_q = torch.rand(1, env.n_dof) * (q_max-q_min).repeat(1, 1) + q_min.repeat(1, 1)
+
+            distances = env.calculate_distance_between_objects(data_q, collision_pairs, pbar=False)
+
+            data_SE3 = env.get_Ts_objects(data_q)
+
+            T_1 = data_SE3[:, pair_indices[0, :, 0]]
+            T_2 = data_SE3[:, pair_indices[0, :, 1]]
+
+            distances = distances.view(n_collision_pairs, 1)[:n_data]
+            pair_indices = pair_indices.view(n_collision_pairs, 2)[:n_data]
+            T_1 = T_1.view(n_collision_pairs, 4, 4)[:n_data]
+            T_2 = T_2.view(n_collision_pairs, 4, 4)[:n_data]
+
+            T_1_inv = invSE3(T_1)
+            T_12 = torch.einsum('bij, bjk -> bik', T_1_inv, T_2)
+
+            acceptance_mask = torch.bernoulli(acceptance_prob) == 1
+
+            T_12 = T_12[acceptance_mask]
+            pair_indices = pair_indices[acceptance_mask]
+            distances = distances[acceptance_mask]
+            
+            cumulated_n_data += len(T_12)
+            T_12_list.append(T_12)
+            pair_indices_list.append(pair_indices)
+            distances_list.append(distances)
+            pbar.update(len(T_12))
+            n_sample += 1
+            
+            if cumulated_n_data >= n_data:
+                pbar.close()
+                break
+            
+        T_12 = torch.cat(T_12_list, dim=0)[:n_data]
+        pair_indices = torch.cat(pair_indices_list, dim=0)[:n_data]
+        distances = torch.cat(distances_list, dim=0)[:n_data]
     
     mesh_pcd_path = os.path.join(PATH, 'pcds')
     os.makedirs(mesh_pcd_path)
@@ -125,6 +186,7 @@ if __name__ == "__main__":
     parser.add_argument("--env", type=str)
     parser.add_argument("--n_data", type=int, default=10000)
     parser.add_argument("--n_pcd", type=int, default=100)
+    parser.add_argument("--pair_distribution", default="uniform", choices=['uniform', 'actual'])
     args, unknown = parser.parse_known_args()
     d_cmd_cfg = parse_unknown_args(unknown)
     d_cmd_cfg = parse_nested_args(d_cmd_cfg)
@@ -132,6 +194,7 @@ if __name__ == "__main__":
     
     n_data = args.n_data
     n_pcd = args.n_pcd
+    pair_distribution = args.pair_distribution
     cfg = OmegaConf.load(args.env)
     cfg = OmegaConf.merge(cfg, d_cmd_cfg)
     print(OmegaConf.to_yaml(cfg))
@@ -141,11 +204,11 @@ if __name__ == "__main__":
     env_fig = env.plot()
     
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_id = f'{run_id}_pairwise_{n_data}'
+    run_id = f'{run_id}_pairwise({pair_distribution})_{n_data}'
     
     dataset_path = os.path.join('datasets', cfg.id, run_id)
     os.makedirs(dataset_path, exist_ok=False)
     save_yaml(os.path.join(dataset_path, 'env_config.yml'), OmegaConf.to_yaml(cfg))
     env_fig.write_image(os.path.join(dataset_path, 'env.png'))
 
-    run(env, n_data, n_pcd, dataset_path)
+    run(env, n_data, n_pcd, dataset_path, pair_distribution)
