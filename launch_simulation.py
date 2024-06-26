@@ -29,7 +29,7 @@ while True:
     dist, points = env.env_bullet.check_collision(pos, return_points=True)
     t = time.time() - t
     print(f'Min. dist. {dist:.3f}m, elapsed time: {t:.3f}s')
-    p.addUserDebugLine(points[0], points[1], [1, 0, 0], 5, 0.1)
+    p.addUserDebugLine(points[0], points[1], [1, 0, 0], 5, 0.2)
     
     pair_idx = int(p.readUserDebugParameter(select_pair_sd))
     
