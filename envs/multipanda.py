@@ -458,7 +458,7 @@ class MultiPanda:
         fig = go.Figure(go.Image(z=img)).update_layout(**plotly_layout, width=1280, height=720)
         return fig
     
-    def _check_valid_collision_pairs(self, n_configurations=1000000, safe_thr=0.0, mode='bullet', pbar=True):
+    def _check_valid_collision_pairs(self, n_configurations=1000000, safe_thr=0.0, mode='bullet', pbar=True, ignore=False):
         """_summary_
         remove collision pairs that are not possible to collide
         
@@ -467,6 +467,11 @@ class MultiPanda:
             safe_thr (float, optional): safe threshold. Defaults to 0.01.
             pbar (bool, optional): whether to show a progress bar. Defaults to False.
         """
+        
+        if ignore:
+            self.collision_pairs = torch.tensor(self.env_bullet.collision_pairs)
+            self.min_pair_indices = None
+            return
         
         env_root = f'./envs/precomputed/{self.id}'
         min_distances_of_pairs_path = os.path.join(env_root, f'min_distances_of_pairs_N{n_configurations}.pt')
