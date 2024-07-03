@@ -76,7 +76,7 @@ def run(cfg, writer):
     
     d_dataloaders = {}
     for key, dataloader_cfg in cfg.data.items():
-        d_dataloaders[key] = get_dataloader(dataloader_cfg, env=env)
+        d_dataloaders[key] = get_dataloader(dataloader_cfg)
     
     optimizer = get_optimizer(cfg.training.optimizer, model.parameters())
     trainer = get_trainer(optimizer, cfg)
