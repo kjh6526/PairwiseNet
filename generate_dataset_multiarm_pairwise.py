@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import os
+import os, json, shutil
 import argparse
 from omegaconf import OmegaConf
 import warnings
@@ -80,7 +80,7 @@ def run(cfg, PATH):
     
     n_data_per_env = int(np.ceil(n_data / n_env))
 
-    pair_indices_list = [None]*n_env
+    pair_meshes_list = [None]*n_env
     T_12_list = [None]*n_env
     distances_list = [None]*n_env
     
@@ -88,10 +88,15 @@ def run(cfg, PATH):
     
     pbar = progress_tracker(total=n_env, desc='n_env', ncols=100)
     
+    # Mid  : "Unique" Mesh ID, 0 ~ len(np.unique(np.array(object_mesh_files)))-1
+    # mesh : Mesh Name, ex) 'link0.obj'
+    # one variable for all environments
+    mesh2Mid_dict = {}
+    
     for radius in np.linspace(*radius_range, n_radius):
         for theta in np.linspace(*theta_range, n_theta):
             for phi in np.linspace(*phi_range, n_phi):
-
+                
                 env_cfg = {
                     'name': 'multipanda',
                     'base_poses': [
@@ -100,13 +105,30 @@ def run(cfg, PATH):
                     ],
                     'base_orientations': [0, phi],
                     'hand': hand,
+                    'collision_pairs_config': {
+                        'ignore': True,
+                    }
                 }
-            
+                
                 env = get_env(env_cfg=env_cfg)
                 
                 collision_pairs = torch.tensor(env.collision_pairs)
-                
                 n_collision_pairs = len(collision_pairs)
+                
+                object_mesh_files = []
+                for o_idx in range(env.n_objects):
+                    bID, lID = env.env_bullet.idx2id(o_idx)
+                    linkinfo = p.getVisualShapeData(bID)[lID+1]
+                    meshfile = linkinfo[4].decode('ascii')
+                    object_mesh_files.append(meshfile)
+                    if meshfile not in mesh2Mid_dict:
+                        mesh2Mid_dict[meshfile] = len(mesh2Mid_dict)
+                        
+                # Oid  : Object ID, 0 ~ env.n_objects-1
+                # one variable per each environment
+                Oid2mesh_dict = dict(zip(np.arange(len(object_mesh_files)), object_mesh_files))    
+                Oid2mesh_map = np.vectorize(Oid2mesh_dict.get)
+                
                 n_sample = int(np.ceil(n_data_per_env / n_collision_pairs))
                 pair_indices = torch.stack([collision_pairs]*n_sample, dim=0) 
                 
@@ -128,8 +150,10 @@ def run(cfg, PATH):
                 
                 T_1_inv = invSE3(T_1)
                 T_12 = torch.einsum('bij, bjk -> bik', T_1_inv, T_2)
+                
+                pair_meshes = Oid2mesh_map(pair_indices.cpu().numpy())
 
-                pair_indices_list[env_idx] = pair_indices
+                pair_meshes_list[env_idx] = pair_meshes
                 T_12_list[env_idx] = T_12
                 distances_list[env_idx] = distances
                 
@@ -138,39 +162,50 @@ def run(cfg, PATH):
     
     pbar.close()
     
-    mesh_pcd_path = os.path.join(PATH, 'pcds')
-    os.makedirs(mesh_pcd_path)
-    for o_idx in range(env.n_objects):
-        bID, lID = env.env_bullet.idx2id(o_idx)
-        linkinfo = p.getVisualShapeData(bID)[lID+1]
-        pcd_path = os.path.join(os.path.dirname(linkinfo[4].decode('ascii')), f'pcd_{n_pcd}')
-        pcd_file = os.path.basename(linkinfo[4].decode('ascii')).split('.')[0]+'.pt'
+    distances = torch.cat(distances_list, dim=0)
+    T_12 = torch.cat(T_12_list, dim=0)
+    
+    pair_meshes = np.concatenate(pair_meshes_list, axis=0)
+    mesh2Mid_map = np.vectorize(mesh2Mid_dict.get)
+    pair_indices = torch.tensor(mesh2Mid_map(pair_meshes), dtype=torch.int64, device=distances.device)
+    
+    # dictionary from Mid to mesh name
+    Mid2mesh_dict = {}
+    mesh_data_path = os.path.join(PATH, 'mesh_data')
+    os.makedirs(mesh_data_path)
+    for meshfile, Mid in mesh2Mid_dict.items():
+        meshname = os.path.basename(meshfile)
+        shutil.copy(meshfile, os.path.join(mesh_data_path, meshname))
+        Mid2mesh_dict[Mid] = meshname
+        
+        # Save pcd files for each mesh (for fixed pcds)
+        pcd_path = os.path.join(os.path.dirname(meshfile), f'pcd_{n_pcd}')
+        pcd_file = os.path.basename(meshfile).split('.')[0]+'.pt'
         pcd_file = os.path.join(pcd_path, pcd_file)
+        
         if os.path.exists(pcd_file):
             pcd_object = torch.load(pcd_file)
         else:
             print(f'{pcd_file.split("/")[-1]} not found. Generating...')
-            mesh = o3d.io.read_triangle_mesh(linkinfo[4])
-            mesh.compute_vertex_normals()
+            mesh = o3d.io.read_triangle_mesh(meshfile)
             pcd_object = mesh.sample_points_uniformly(number_of_points=n_pcd)
             pcd_object = torch.tensor(np.array(pcd_object.points), dtype=torch.float).T
             os.makedirs(pcd_path, exist_ok=True)
             torch.save(pcd_object, pcd_file)
-        
-        torch.save(pcd_object, os.path.join(mesh_pcd_path, f'pcd_{o_idx}.pt'))
-        
-    distances = torch.cat(distances_list, dim=0)
-    T_12 = torch.cat(T_12_list, dim=0)
-    pair_indices = torch.cat(pair_indices_list, dim=0)
             
+        torch.save(pcd_object, os.path.join(mesh_data_path, f'{meshname}_pcd_{n_pcd}.pt'))
+        
     print(f'distance : {distances.shape}')
     print(f'pair_indices : {pair_indices.shape}')
     print(f'T_12 : {T_12.shape}')
+    print(f'Mid2mesh_dict : {Mid2mesh_dict}')
     
     torch.save(distances, os.path.join(PATH, 'distances.pt'))
     torch.save(pair_indices, os.path.join(PATH, 'pair_indices.pt'))
     torch.save(T_12, os.path.join(PATH, 'T_12.pt'))
-
+    with open(os.path.join(PATH, 'Mid2mesh_dict.json'), 'w') as dict_file:
+        json.dump(Mid2mesh_dict, dict_file)
+        
     print(f'{n_data} points of pairwise collision distance data are successfully saved at {PATH}.')
     print(f'Total {n_env} environments, {n_data_per_env} data points per environment.')
     print(f'{n_sample} joint configurations are used per environment on average.')

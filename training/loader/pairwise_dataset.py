@@ -1,4 +1,4 @@
-import os
+import os, json
 import torch
 import numpy as np
 from torch.utils import data
@@ -11,8 +11,7 @@ from envs import get_env
 class Pairwise(torch.utils.data.Dataset):
     def __init__(self, **kwargs):
         self.root = kwargs['root']
-        self.env = kwargs['env']
-        self.random_pcds = kwargs.get('random_pcds', False)
+        self.random_pcds = kwargs.get('random_pcds', True)
         self.n_pcd = kwargs.get('n_pcd', 100)
         
         split = kwargs['split']
@@ -21,27 +20,27 @@ class Pairwise(torch.utils.data.Dataset):
         SE3 = torch.load(os.path.join(self.root, 'T_12.pt')).type(torch.float)
         y = torch.load(os.path.join(self.root, 'distances.pt')).type(torch.float)
         
+        with open(os.path.join(self.root, 'Mid2mesh_dict.json'), 'r') as f:
+            Mid2mesh_dict = json.load(f)
+        Mid2mesh_dict = {int(k):v for k,v in Mid2mesh_dict.items()}
+        
         SE3 = SE3[:, :3, :].view(-1, 12)
         
-        n_objects = len(os.listdir(os.path.join(self.root, 'pcds')))
+        n_objects = len(Mid2mesh_dict)
         self.pcds = [None] * n_objects
-        for pcd_file in os.listdir(os.path.join(self.root, 'pcds')):
-            object_idx = int(pcd_file.split('_')[1].split('.')[0])
-            self.pcds[object_idx] = torch.load(os.path.join(self.root, 'pcds', pcd_file)).type(torch.float)
+        self.meshes = [None] * n_objects
+        self.rand_pcds = [None] * n_objects
+        
+        for Mid, meshname in Mid2mesh_dict.items():
+            pcd_file = os.path.join(self.root, 'mesh_data', f'{meshname}_pcd_{self.n_pcd}.pt')
+            self.pcds[Mid] = torch.load(pcd_file).type(torch.float)
             
-        self.meshes = []
-        for object_idx in range(n_objects):
-            bID, lID = self.env.env_bullet.idx2id(object_idx)
-            linkinfo = p.getVisualShapeData(bID)[lID+1]
-            mesh = o3d.io.read_triangle_mesh(linkinfo[4])
-            mesh.compute_vertex_normals()
-            self.meshes.append(mesh)
+            meshfile = os.path.join(self.root, 'mesh_data', meshname)
+            self.meshes[Mid] = o3d.io.read_triangle_mesh(meshfile)
             
-        self.rand_pcds = []
-        for object_idx in range(n_objects):
-            pcd_object = self.meshes[object_idx].sample_points_uniformly(number_of_points=self.n_pcd*100)
+            pcd_object = self.meshes[Mid].sample_points_uniformly(number_of_points=self.n_pcd*100)
             pcd_object = torch.tensor(np.array(pcd_object.points), dtype=torch.float).T
-            self.rand_pcds.append(pcd_object)
+            self.rand_pcds[Mid] = pcd_object
         
         split_train_val_test = (5/7, 1/7, 1/7)
         num_train_data = int(len(y) * split_train_val_test[0])
