@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
-<robot name="plane">
+<robot name="high_table">
 
-    <link name="link_plane">
+    <link name="high_table_plane">
         <contact>
             <lateral_friction value="1"/>
         </contact>
@@ -15,7 +15,7 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_plane.obj"/>
+                <mesh filename="mesh/high_table/high_table_plane.obj"/>
                 <!-- <box size="0.802 1.806 0.022"/> -->
             </geometry>
             <material name="table_gray"/>
@@ -24,14 +24,14 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_plane.obj"/>
+                <mesh filename="mesh/high_table/high_table_plane.obj"/>
                 <!-- <box size="0.802 1.806 0.022"/> -->
             </geometry>
         </collision>
         
     </link>
 
-    <link name="link_leg1">
+    <link name="high_table_leg1">
         <contact>
             <lateral_friction value="1"/>
         </contact>
@@ -45,7 +45,7 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg1.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg1.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
             <material name="leg_gray"/>
@@ -54,14 +54,14 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg1.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg1.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
         </collision>
         
     </link>
 
-    <link name="link_leg2">
+    <link name="high_table_leg2">
         <contact>
             <lateral_friction value="1"/>
         </contact>
@@ -75,7 +75,7 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg2.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg2.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
             <material name="leg_gray"/>
@@ -84,14 +84,14 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg2.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg2.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
     </collision>
         
     </link>
 
-    <link name="link_leg3">
+    <link name="high_table_leg3">
         <contact>
             <lateral_friction value="1"/>
         </contact>
@@ -105,7 +105,7 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg3.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg3.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
             <material name="leg_gray"/>
@@ -114,14 +114,14 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg3.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg3.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
         </collision>
         
     </link>
 
-    <link name="link_leg4">
+    <link name="high_table_leg4">
         <contact>
             <lateral_friction value="1"/>
         </contact>
@@ -135,7 +135,7 @@
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg4.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg4.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
             <material name="leg_gray"/>
@@ -144,7 +144,7 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="mesh/high_table/link_leg4.obj"/>
+                <mesh filename="mesh/high_table/high_table_leg4.obj"/>
                 <!-- <box size="0.06 0.06 0.993"/> -->
             </geometry>
         </collision>
@@ -152,26 +152,26 @@
     </link>
 
     <joint name="fixed_joint1" type="fixed">
-        <parent link="link_plane"/>
-        <child link="link_leg1"/>
+        <parent link="high_table_plane"/>
+        <child link="high_table_leg1"/>
         <origin rpy="0 0 0.0" xyz="0.371 0.873 -0.507"/>
     </joint>
 
     <joint name="fixed_joint2" type="fixed">
-        <parent link="link_plane"/>
-        <child link="link_leg2"/>
+        <parent link="high_table_plane"/>
+        <child link="high_table_leg2"/>
         <origin rpy="0 0 0.0" xyz="-0.371 0.873 -0.507"/>
     </joint>
 
     <joint name="fixed_joint3" type="fixed">
-        <parent link="link_plane"/>
-        <child link="link_leg3"/>
+        <parent link="high_table_plane"/>
+        <child link="high_table_leg3"/>
         <origin rpy="0 0 0.0" xyz="0.371 -0.873 -0.507"/>
     </joint>
 
     <joint name="fixed_joint4" type="fixed">
-        <parent link="link_plane"/>
-        <child link="link_leg4"/>
+        <parent link="high_table_plane"/>
+        <child link="high_table_leg4"/>
         <origin rpy="0 0 0.0" xyz="-0.371 -0.873 -0.507"/>
     </joint>
 
