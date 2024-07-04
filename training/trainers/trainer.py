@@ -112,6 +112,7 @@ class PairwiseNetTrainer:
         train_loader, val_loader, test_loader = (d_dataloaders["training"], d_dataloaders["validation"], d_dataloaders["test"])
         i_iter = kwargs.get('iter_bias', 0)
         best_val_loss = np.inf
+        best_eval_metric = {}
     
         for i_epoch in range(1, cfg['n_epoch'] + 1):
             for pcd1, pcd2, SE3, y in train_loader:
@@ -145,7 +146,7 @@ class PairwiseNetTrainer:
                     if best_model:
                         print(f'Iter [{i_iter:d}] best model saved {val_loss:.6f} <= {best_val_loss:.6f}')
                         best_val_loss = val_loss
-                        self.save_model(model, logdir, best=True)
+                        self.save_model(model, logdir, best=True, metric='val_loss')
                     
                     d_eval = model.eval_step(test_dl=test_loader, env=kwargs['env'], cfg=self.cfg, device=self.device, **self.training_cfg)
                     logger.add_val(i_iter, d_eval)
@@ -153,6 +154,17 @@ class PairwiseNetTrainer:
                     for key, val in d_eval.items():
                         if key.endswith('_'):
                             print_str = print_str + f'\t{key[:-1]}: {val:.4f}'
+                            
+                            if key not in best_eval_metric.keys():
+                                best_eval_metric[key] = val
+                            elif key in ['eval/accuracy_', 'eval/AUROC_']:
+                                if val > best_eval_metric[key]:
+                                    best_eval_metric[key] = val
+                                    self.save_model(model, logdir, best=True, metric=key[5:-1])
+                            elif key in ['eval/mse_', 'eval/safe_FPR_']:
+                                if val < best_eval_metric[key]:
+                                    best_eval_metric[key] = val
+                                    self.save_model(model, logdir, best=True, metric=key[5:-1])
                     print(print_str)
                     
                 if i_iter % cfg.visualize_interval == 0:
@@ -163,9 +175,9 @@ class PairwiseNetTrainer:
         
         return model, best_val_loss, i_iter
 
-    def save_model(self, model, logdir, best=False, i_iter=None, i_epoch=None):
+    def save_model(self, model, logdir, best=False, i_iter=None, i_epoch=None, metric='val_loss'):
         if best:
-            pkl_name = "model_best.pkl"
+            pkl_name = f"model_best_{metric}.pkl"
         else:
             if i_iter is not None:
                 pkl_name = f"model_iter_{i_iter}.pkl"
