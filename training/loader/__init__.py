@@ -4,6 +4,7 @@ from torch.utils import data
 
 from training.loader.global_dataset import Global
 from training.loader.pairwise_dataset import Pairwise
+from training.loader.pcd_dataset import Pcd
 
 def get_dataloader(data_dict, **kwargs):
     dataset = get_dataset(data_dict, **kwargs)
@@ -21,6 +22,8 @@ def get_dataset(data_dict, **kwargs):
         dataset = Global(**data_dict, **kwargs)
     elif name == 'pairwise':
         dataset = Pairwise(**data_dict, **kwargs)
+    elif name == 'pcd':
+        dataset = Pcd(**data_dict, **kwargs)
     else:
         raise NotImplementedError
     
