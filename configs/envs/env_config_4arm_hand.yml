@@ -1,0 +1,18 @@
+id: fourarm_hand          # identifier string of the environment
+
+name: multipanda      # name of the environment class
+base_poses:
+  - [0, 0.5, 0]
+  - [0, -0.5, 0]
+  - [0.5, 0, 0]
+  - [-0.5, 0, 0]
+base_orientations:
+  - -1.5708
+  - 1.5708
+  - 3.1415
+  - 0.0
+hand: True
+
+collision_pairs_config:
+  n_configurations: 1000000
+  safe_thr: 0.01
