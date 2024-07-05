@@ -106,7 +106,7 @@ if __name__ == "__main__":
     cfg = OmegaConf.merge(cfg, d_cmd_cfg)
     print(OmegaConf.to_yaml(cfg))
     
-    env = get_env(cfg)
+    env = get_env(cfg, verbose=True)
     
     env_fig = env.plot()
     
