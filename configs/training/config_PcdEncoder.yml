@@ -1,0 +1,80 @@
+logdir: 'results'
+
+logger: 
+  type: 'base'
+  endwith: ['@']
+  wandblog: True #True to use WandB 
+  wandbconfig: ['train_dataset'] # WandB key
+
+model:
+  name: 'PCD_autoencoder'
+  encoder:
+    name: DGCNN
+    k: 5
+    leakyrelu_slope: 0.2
+    l_hidden_local: [64, 64]
+    global_feature_dim: 32
+    l_hidden_global: [64, 64]
+    input_dim: 3
+    output_feature: 'global'
+    use_spatial_transform: False
+    use_batch_norm: False
+    use_mean_global_feature: False
+  decoder:
+    name: MLP_pcd
+    input_dim: 32
+    activation: relu
+    leakyrelu_slope: None
+    out_activation: linear
+    l_hidden: [64, 64]
+    use_batch_norm: False
+    output_point_dim: 3
+    number_of_points: 100  
+
+trainer: 'PcdEncoder'
+
+training: 
+  seed: 2
+  n_epoch: 1000000
+  optimizer:
+    name: 'adam'
+    lr: 0.001
+  loss: 
+    name: 'chamfer'
+
+  print_interval: 100
+  val_interval: 1000
+  save_interval: 1000
+  visualize_interval: 1000
+
+data:
+  training:
+    dataset: 'pcd'
+    root: 'pcds/frankabox'
+    batch_size: 100
+    n_workers: 4
+    split: training
+    shuffle: True
+
+    random_pcds: True
+    n_pcd: 100
+
+
+  validation: 
+    dataset: 'pcd'
+    root: 'pcds/frankabox'
+    batch_size: 100
+    n_workers: 4
+    split: validation
+    shuffle: True
+
+    random_pcds: True
+    n_pcd: 100
+
+  test:
+    dataset: 'pcd'
+    root: 'pcds/frankabox'
+    batch_size: 1000
+    n_workers: 4
+    split: all
+    shuffle: False

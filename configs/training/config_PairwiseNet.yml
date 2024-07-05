@@ -9,6 +9,9 @@ logger:
 model:
   name: 'PairwiseNet'
   encoder:
+    pretrain: True
+    finetune: False
+    root: 'results/20240705-104540/model_best.pkl'
     name: DGCNN
     k: 5
     leakyrelu_slope: 0.2

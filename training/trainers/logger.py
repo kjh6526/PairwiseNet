@@ -68,9 +68,9 @@ class BaseLogger:
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
                 l_print_str.append(f'\t{key[:-1]}: {val:.4f}')
-            if key.endswith('@'):
-                if val is not None:
-                    self.writer.add_image(key, val, i)
+            # if key.endswith('@'):
+            #     if val is not None:
+                    # self.writer.add_image(key, val, i)
         if self.wandblog: 
             wandb.log(d_val, step=i) #log evaluation loss
         print_str = ' '.join(l_print_str)
@@ -94,9 +94,10 @@ class BaseLogger:
         for key, val in d_result.items():
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
+                if self.wandblog:
+                    wandb.log({key: val}, step=i)
             if key.endswith('@'):
                 if val is not None:
-                    self.writer.add_image(key, val, i)
-        
-        if self.wandblog:
-            wandb.log(d_result, step=i) #log evaluation result
+                    # self.writer.add_image(key, val, i)
+                    if self.wandblog: 
+                        wandb.log({key: wandb.Object3D(val.T)}, step=i)
