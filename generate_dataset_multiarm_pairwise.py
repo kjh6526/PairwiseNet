@@ -222,6 +222,8 @@ if __name__ == "__main__":
     print(cfg)
     
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    if cfg.hand:
+        run_id = f'{run_id}_hand'
     run_id = f'{run_id}_{cfg.n_data}_{cfg.n_pcd}'
     
     dataset_path = os.path.join('datasets', 'Multiarm_Pairwise', run_id)
