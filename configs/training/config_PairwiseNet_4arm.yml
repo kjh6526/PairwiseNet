@@ -1,0 +1,72 @@
+logdir: 'results'
+
+logger: 
+  type: 'base'
+  endwith: ['@']
+  wandblog: True #True to use WandB 
+  wandbconfig: ['train_dataset'] # WandB key
+
+model:
+  name: 'PairwiseNet'
+  encoder:
+    name: DGCNN
+    k: 5
+    leakyrelu_slope: 0.2
+    l_hidden_local: [64, 64]
+    global_feature_dim: 32
+    l_hidden_global: [64, 64]
+    input_dim: 3
+    output_feature: 'global'
+    use_spatial_transform: False
+    use_batch_norm: False
+    use_mean_global_feature: False
+
+  output_dims: 1
+  hidden_nodes: [128, 128, 128]
+  activation: 'sigmoid'
+  last_activation: 'linear'
+
+data:
+  training:
+    dataset: 'pairwise'
+    root: 'datasets/Multiarm_Pairwise/20240704-184058_3000000_100'
+    batch_size: 1000
+    n_workers: 4
+    split: training
+    shuffle: True
+
+    random_pcds: False
+    n_pcd: 100
+
+  validation: 
+    dataset: 'pairwise'
+    root: 'datasets/Multiarm_Pairwise/20240704-184058_3000000_100'
+    batch_size: 1000
+    n_workers: 4
+    split: validation
+    shuffle: True
+
+    random_pcds: False
+    n_pcd: 100
+  
+  test:
+    dataset: 'global'
+    root: 'datasets/fourarm/20240704-184347_global_1000000'
+    batch_size: 1000
+    n_workers: 4
+    split: all
+    shuffle: False
+
+trainer: 'PairwiseNet'
+training: 
+  seed: 2
+  n_epoch: 2000
+  optimizer:
+    name: 'adam'
+    lr: 0.001
+  loss: 
+    name: 'mse'
+
+  print_interval: 100
+  val_interval: 1000
+  visualize_interval: 1000
