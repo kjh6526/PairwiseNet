@@ -89,9 +89,6 @@ def run(cfg, writer):
         env=env,
     )
 
-    loaded_state = torch.load(os.path.join(writer.file_writer.get_logdir(), 'model_best.pkl'))
-    model.load_state_dict(loaded_state['model_state'])
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str)
