@@ -36,7 +36,8 @@ def get_MLP_pcd(model_dict, **kwargs):
 def get_PairwiseNet(model_dict, **kwargs):
     encoder_cfg = model_dict.encoder
     encoder = _get_model_instance(encoder_cfg.name)
-    if encoder_cfg.pretrain:
+    use_pretrained_encoder = encoder_cfg.get('pretrain', False)
+    if use_pretrained_encoder:
         # Load the pre-trained encoder from the specified file
         encoder = encoder(encoder_cfg, **kwargs)
         pretrained_state = torch.load(encoder_cfg.root)
