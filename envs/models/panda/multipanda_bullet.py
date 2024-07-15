@@ -219,6 +219,11 @@ class MultiPanda_bullet:
                 else:
                     self.collision_pairs.append([o1_idx, o2_idx])
 
+        # Control Gains
+        self.position_control_gain_p = [100.0] * self.n_dof
+        self.position_control_gain_d = [40.0] * self.n_dof
+        self.max_torque = [100] * self.n_dof
+        
         self.reset()
         
     def idx2id_joint(self, joint_idx):
@@ -275,7 +280,47 @@ class MultiPanda_bullet:
         for joint_idx in range(self.n_dof):
             r_id, j_id = self.idx2id_joint(joint_idx)
             p.resetJointState(r_id, j_id, target_pos[joint_idx])
-    
+            
+    def set2TargetPositions(self, target_pos):
+        assert len(target_pos) == self.n_dof
+        self.target_pos = target_pos
+        for joint_idx in range(self.n_dof):
+            r_id, j_id = self.idx2id_joint(joint_idx)
+            p.setJointMotorControl2(
+                bodyUniqueId=r_id,
+                jointIndex=j_id,
+                controlMode=p.POSITION_CONTROL,
+                targetPosition=target_pos[joint_idx],
+                force=self.max_torque[joint_idx],
+                positionGain=self.position_control_gain_p[joint_idx],
+                velocityGain=self.position_control_gain_d[joint_idx],
+            )
+            
+    def set2TargetVelocities(self, target_vel):
+        assert len(target_vel) == self.n_dof
+        self.target_vel = target_vel
+        for joint_idx in range(self.n_dof):
+            r_id, j_id = self.idx2id_joint(joint_idx)
+            p.setJointMotorControl2(
+                bodyUniqueId=r_id,
+                jointIndex=j_id,
+                controlMode=p.VELOCITY_CONTROL,
+                targetVelocity=target_vel[joint_idx],
+                force=self.max_torque[joint_idx],
+            )
+            
+    def set2TargetTorques(self, target_torque):
+        assert len(target_torque) == self.n_dof
+        self.target_torque = target_torque
+        for joint_idx in range(self.n_dof):
+            r_id, j_id = self.idx2id_joint(joint_idx)
+            p.setJointMotorControl2(
+                bodyUniqueId=r_id,
+                jointIndex=j_id,
+                controlMode=p.TORQUE_CONTROL,
+                force=target_torque[joint_idx],
+            )
+            
     def getJointStates(self):
         joint_positions = []
         joint_velocities = []
