@@ -39,8 +39,10 @@ def get_PairwiseNet(model_dict, **kwargs):
     if encoder_cfg.pretrain:
         # Load the pre-trained encoder from the specified file
         encoder = encoder(encoder_cfg, **kwargs)
-        pretrained_state = torch.load(encoder_cfg.root)
-        encoder.load_state_dict(pretrained_state)
+        checkpoint = torch.load(encoder_cfg.root)
+        model_state_dict = checkpoint['model_state']
+        encoder_state_dict = {k.replace('encoder.', ''): v for k, v in model_state_dict.items() if k.startswith('encoder.')}
+        encoder.load_state_dict(encoder_state_dict, strict=False)
         
         # Set the encoder weights to not be updated during training
         if not encoder_cfg.finetune:
