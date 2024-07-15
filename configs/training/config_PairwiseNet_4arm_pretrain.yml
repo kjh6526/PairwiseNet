@@ -9,9 +9,9 @@ logger:
 model:
   name: 'PairwiseNet'
   encoder:
-    pretrain: False
-    # finetune: False
-    # root: 'results/20240705-152517/model_best.pkl'
+    pretrain: True
+    finetune: False #set true to update pretained weights
+    root: 'results/20240705-152517/model_best.pkl' 
     name: DGCNN
     k: 5
     leakyrelu_slope: 0.2
