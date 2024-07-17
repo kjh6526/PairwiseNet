@@ -328,8 +328,7 @@ class MultiPanda_bullet:
         
         for joint_idx in range(self.n_dof):
             r_id, j_id = self.idx2id_joint(joint_idx)
-            
-            joint_state = p.getJointStates(r_id, j_id)
+            joint_state = p.getJointStates(r_id, [j_id])[0]
             joint_positions.append(joint_state[0])
             joint_velocities.append(joint_state[1])
             joint_torques.append(joint_state[3])
