@@ -112,7 +112,13 @@ def run(cfg, PATH):
                 
                 env = get_env(env_cfg=env_cfg)
                 
-                collision_pairs = torch.tensor(env.collision_pairs)
+                # collision_pairs = torch.tensor(env.collision_pairs)
+                collision_pairs = []
+                for o1_idx in range(env.n_objects):
+                    for o2_idx in [x for x in range(env.n_objects) if x != o1_idx]:
+                        collision_pairs.append([o1_idx, o2_idx])
+                        
+                collision_pairs = torch.tensor(collision_pairs, dtype=torch.int64)
                 n_collision_pairs = len(collision_pairs)
                 
                 object_mesh_files = []
