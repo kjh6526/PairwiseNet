@@ -154,7 +154,7 @@ class Pairwise2Global:
         self.device = self.model.get_device()
         self.env = env
         
-        self.collision_pairs = torch.tensor(env.collision_pairs)
+        self.collision_pairs = torch.as_tensor(env.collision_pairs)
         
         pcd1s = []
         pcd2s = []
