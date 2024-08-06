@@ -171,7 +171,8 @@ class PairwiseNetTrainer:
                     d_val = model.visualization_step(test_dl=test_loader, env=kwargs['env'], cfg=self.cfg, device=self.device, **self.training_cfg)
                     logger.add_val(i_iter, d_val)
         
-        self.save_model(model, logdir, i_iter="last")
+        model_path = self.save_model(model, logdir, i_iter="last")
+        logger.save_model(model_path)
         
         return model, best_val_loss, i_iter
 
@@ -187,6 +188,7 @@ class PairwiseNetTrainer:
         save_path = os.path.join(logdir, pkl_name)
         torch.save(state, save_path)
         print(f"Model saved: {pkl_name}")
+        return save_path
 
 
 class PcdEncoderTrainer:

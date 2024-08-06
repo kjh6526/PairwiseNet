@@ -101,3 +101,7 @@ class BaseLogger:
                     # self.writer.add_image(key, val, i)
                     if self.wandblog: 
                         wandb.log({key: wandb.Object3D(val.T)}, step=i)
+                        
+    def save_model(self, model_file_name):
+        if self.wandblog:
+            wandb.save(model_file_name)
