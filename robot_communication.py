@@ -12,7 +12,7 @@ print(f'Using device: {device}')
 
 import os
 import pickle
-
+import csv
 
 import sys
 from scipy.spatial.transform import Rotation as Rot
@@ -22,6 +22,11 @@ import argparse
 from envs import get_env
 from omegaconf import OmegaConf
 from envs.lib.LieGroup import invSE3
+
+from datetime import datetime
+
+def now():
+    return datetime.now().strftime('%y%m%d%H%M')
 
 # device
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -151,57 +156,57 @@ intensity_amplify_ratio = 200
 d_nice = 0.05
 repulsion_intensity = 1.0
 
-with open('results/log_data.csv', mode='a', newline='') as file:
+with open(f'results/log_data_{now()}.csv', mode='a', newline='') as file:
     writer = csv.writer(file)
 
     if file.tell() == 0:
         writer.writerow(['time_step', 'time', 'target_vel', 'intensity', 'current_joint', 'min_distance'])
 
-while True:
-    time_start = time.time()
+    while True:
+        time_start = time.time()
+        
+        if lis.msg_s2c == 'None':
+            continue
+        
+        current_joint = ast.literal_eval(lis.msg_s2c)        
+        current_joint = torch.tensor(current_joint, dtype = torch.float, device = device, requires_grad = True)
+        input_vec = current_joint.unsqueeze(0) 
+        d_min = pairwise(input_vec).squeeze()
+        d_min.backward()
+        gradient_dmin = current_joint.grad
+
+        if d_min > d_nice:
+            target_vel = torch.zeros_like(current_joint)
+            repulsion_intensity = 1.0
+
+        else:
+            target_vel = gradient_dmin / torch.norm(gradient_dmin) * (vel_spring * (d_nice-d_min) - vel_damper*(d_min - d_min_old)) 
+            repulsion_intensity = 1.0 + intensity_amplify_ratio*(d_nice-d_min)
+
+        joint_max = torch.tensor([2.175, 2.175, 2.175, 2.175, 2.61, 2.61, 2.61], dtype = torch.float, device = device)
+        target_vel = torch.clamp(target_vel, min=-joint_max, max=joint_max)
+
+        repulsion_intensity = torch.tensor([repulsion_intensity], dtype = torch.float, device = device)
+        repulse_vec = torch.cat((target_vel, repulsion_intensity))
+        # send_array_msg_c2s(torch.zeros_like(repulse_vec))
+        send_array_msg_c2s(repulse_vec)
+        d_min_old = d_min
+        i+=1
+        print(f'\nrepulse_vec: {repulse_vec}, dmin: {d_min}')
+        # time.sleep(1)
+        # print('msg = ' + str(array))
+        if i % 100000 == 0:
+            i = 0
+            print(f'\nTime elapsed: {time.time() - ts}, FPS: {100000 / (time.time() - ts)}, msg_from_r: {lis.msg_s2c}')
+            ts = time.time()
+            # time.sleep(2)
+        # toc = time.time()
+        # print((toc - tic), 1/fps, 1/fps - (toc - tic))
+        # if toc - tic < 1/fps:
+        #     time.sleep(1/fps - (toc - tic))
+        
+        #will log data only when collision repulsion occured!!
     
-    if lis.msg_s2c == 'None':
-        continue
-    
-    current_joint = ast.literal_eval(lis.msg_s2c)        
-    current_joint = torch.tensor(current_joint, dtype = torch.float, device = device, requires_grad = True)
-    input_vec = current_joint.unsqueeze(0) 
-    d_min = pairwise(input_vec).squeeze()
-    d_min.backward()
-    gradient_dmin = current_joint.grad
-
-    if d_min > d_nice:
-        target_vel = torch.zeros_like(current_joint)
-        repulsion_intensity = 1.0
-
-    else:
-        target_vel = gradient_dmin / torch.norm(gradient_dmin) * (vel_spring * (d_nice-d_min) - vel_damper*(d_min - d_min_old)) 
-        repulsion_intensity = 1.0 + intensity_amplify_ratio*(d_nice-d_min)
-
-    joint_max = torch.tensor([2.175, 2.175, 2.175, 2.175, 2.61, 2.61, 2.61], dtype = torch.float, device = device)
-    target_vel = torch.clamp(target_vel, min=-joint_max, max=joint_max)
-
-    repulsion_intensity = torch.tensor([repulsion_intensity], dtype = torch.float, device = device)
-    repulse_vec = torch.cat((target_vel, repulsion_intensity))
-    # send_array_msg_c2s(torch.zeros_like(repulse_vec))
-    send_array_msg_c2s(repulse_vec)
-    d_min_old = d_min
-    i+=1
-    print(f'\nrepulse_vec: {repulse_vec}, dmin: {d_min}')
-    # time.sleep(1)
-    # print('msg = ' + str(array))
-    if i % 100000 == 0:
-        i = 0
-        print(f'\nTime elapsed: {time.time() - ts}, FPS: {100000 / (time.time() - ts)}, msg_from_r: {lis.msg_s2c}')
-        ts = time.time()
-        # time.sleep(2)
-    # toc = time.time()
-    # print((toc - tic), 1/fps, 1/fps - (toc - tic))
-    # if toc - tic < 1/fps:
-    #     time.sleep(1/fps - (toc - tic))
-    
-    #will log data only when collision repulsion occured!! or else, data would be trivial
-    if d_min < d_nice:
         time_log = time.time()
         target_vel = target_vel.cpu().tolist()
         repulsion_intensity = repulsion_intensity.cpu().item()
@@ -209,6 +214,7 @@ while True:
         d_min = d_min.cpu().item()
         writer.writerow([i, time_log, target_vel, repulsion_intensity, current_joint, d_min])
     
-    time_end = time.time()    
-    print(f'FPS: {1/(time_end - time_start)}')
+        time_end = time.time()    
+        print(f'FPS: {1/(time_end - time_start)}')
+
 client_socket.close()
