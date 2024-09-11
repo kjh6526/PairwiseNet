@@ -1,6 +1,6 @@
 import torch
 
-from tqdm import tqdm, trange
+from tqdm.auto import tqdm, trange
 import copy
 import plotly.graph_objects as go
 import plotly.express as px
@@ -8,7 +8,7 @@ import plotly.io as pio
 import plotly.subplots as sp
 plotly_layout = dict(margin=dict(l=20, r=20, t=20, b=20))
 
-from utils import now
+from utils import now, progress_tracker
 from utils.cubic_spline import cubic_spline_curve, cubic_spline_curve_manual
 
 class TrajectoryOptimizer:
@@ -47,6 +47,10 @@ class TrajectoryOptimizer:
         min_loss = 1e10
         best_curve = None
         
+        loss_pbar = progress_tracker(total=1, disable=not pbar, desc='Loss', ncols=100)
+        f_pbar    = progress_tracker(total=1, disable=not pbar, desc='length', ncols=100)
+        g_pbar    = progress_tracker(total=1, disable=not pbar, desc='ineq_const', ncols=100)
+        
         for _ in trange(iteration, disable=not pbar, desc='Opt.', ncols=100):
             opt.zero_grad()
             if self.length == 'joint':
@@ -82,6 +86,10 @@ class TrajectoryOptimizer:
             results['g_hist'].append(g.item())
             results['dX_hist'].append(g_dX.item())
             results['loss_hist'].append(loss.item())
+            
+            loss_pbar.update(loss.item())
+            f_pbar.update(f.item())
+            g_pbar.update(g.item())
             
             if plotly_figwidget:
                 for plot in plotly_figwidget.data:
