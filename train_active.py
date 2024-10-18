@@ -10,12 +10,18 @@ warnings.simplefilter("ignore")
 from tensorboardX import SummaryWriter
 from datetime import datetime
 
+import wandb
+
+import plotly
+import plotly.graph_objects as go
+
 from training.model import get_model
 from training.optimizers import get_optimizer
 from training.trainers import get_trainer, get_logger
 from training.loader import get_dataloader
+from training.augmenter import get_augmenter
 from envs import get_env
-from utils import save_yaml
+from utils import save_yaml, now
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -77,17 +83,50 @@ def run(cfg, writer):
     d_dataloaders = {}
     for key, dataloader_cfg in cfg.data.items():
         d_dataloaders[key] = get_dataloader(dataloader_cfg)
+        
+    augmenter = get_augmenter(cfg, env)
     
     optimizer = get_optimizer(cfg.training.optimizer, model.parameters())
     trainer = get_trainer(optimizer, cfg)
+    
+    best_val_loss = np.inf
+    best_eval_metric = {}
+    i_iter = 0
+    
+    for augepoch_idx in range(cfg.augmenter.n_augepoch):
 
-    model, best_val_loss, i_iter, best_eval_metric = trainer.train(
-        model,
-        d_dataloaders,
-        logger=logger,
-        logdir=writer.file_writer.get_logdir(),
-        env=env,
+        model, best_val_loss, i_iter, best_eval_metric = trainer.train(   
+            model,
+            d_dataloaders,
+            logger=logger,
+            logdir=writer.file_writer.get_logdir(),
+            env=env,
+            best_val_loss=best_val_loss,
+            best_eval_metric=best_eval_metric,
+            iter_bias=i_iter
+        )
+        
+        loaded_state = torch.load(os.path.join(writer.file_writer.get_logdir(), 'model_best_val_loss.pkl'))
+        model.load_state_dict(loaded_state['model_state'])
+        
+        checker = model.get_checker(cfg, env)
+        
+        print(f"{now()} Iter [{i_iter:d}] Augment {augepoch_idx+1:02d}")
+        d_dataloaders = augmenter.augment(model=checker, dls=d_dataloaders, pbar=True)
+        
+        if logger.wandblog:
+            dist = d_dataloaders['training'].dataset.y[torch.randperm(len(d_dataloaders['training'].dataset.y))[:100000]].squeeze().cpu().numpy()
+            wandb.log({"gradients": wandb.Histogram(dist)}, step=i_iter+augepoch_idx)
+
+def draw_distribution(d_dataloaders):
+    dl = d_dataloaders['training']
+    dist = dl.dataset.y[torch.randperm(len(dl.dataset.y))[:100000]]
+    fig = go.Figure()
+    fig.add_trace(
+        go.Histogram(x=dist.cpu().numpy(), histnorm='probability', xbins=dict(size=0.01), name='train dataset')
     )
+    fig.update_layout(margin=dict(l=0, r=0, t=0, b=0), width=800, height=400)
+    return fig
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

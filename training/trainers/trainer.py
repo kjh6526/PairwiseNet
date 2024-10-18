@@ -110,9 +110,10 @@ class PairwiseNetTrainer:
     
         time_meter = averageMeter()
         train_loader, val_loader, test_loader = (d_dataloaders["training"], d_dataloaders["validation"], d_dataloaders["test"])
+        
         i_iter = kwargs.get('iter_bias', 0)
-        best_val_loss = np.inf
-        best_eval_metric = {}
+        best_val_loss = kwargs.get('best_val_loss', np.inf)
+        best_eval_metric = kwargs.get('best_eval_metric', {})
     
         for i_epoch in range(1, cfg['n_epoch'] + 1):
             for pcd1, pcd2, SE3, y in train_loader:
@@ -174,7 +175,7 @@ class PairwiseNetTrainer:
         model_path = self.save_model(model, logdir, i_iter="last")
         logger.save_model(model_path)
         
-        return model, best_val_loss, i_iter
+        return model, best_val_loss, i_iter, best_eval_metric
 
     def save_model(self, model, logdir, best=False, i_iter=None, i_epoch=None, metric='val_loss'):
         if best:

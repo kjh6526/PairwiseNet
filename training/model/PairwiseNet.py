@@ -147,6 +147,9 @@ class PairwiseNet(nn.Module):
     def visualization_step(self, **kwargs):
         return {}
     
+    def get_checker(self, cfg, env):
+        return Pairwise2Global(self, cfg, env)
+    
 class Pairwise2Global:
     def __init__(self, model, cfg, env, **kwargs):
         self.model = model
@@ -175,7 +178,30 @@ class Pairwise2Global:
         
         self.model.eval()
         
-    def calculate_min_distance(self, X):
+    def joint2pairwise(self, X):
+        n_data = len(X)
+        n_pairs = len(self.collision_pairs)
+        
+        SE3 = self.env.get_Ts_objects(X).to(self.device)
+        T_1 = SE3[:, self.collision_pairs[:, 0]].view(n_data*n_pairs, 4, 4)
+        T_2 = SE3[:, self.collision_pairs[:, 1]].view(n_data*n_pairs, 4, 4)
+        T_12 = invSE3(T_1) @ T_2
+        SE3 = T_12[:, :3, :].view(n_data, n_pairs, 12)
+        
+        pair_indices = self.collision_pairs.unsqueeze(0).repeat_interleave(n_data, dim=0)
+        
+        # pcd1 = self.pcd1.unsqueeze(0).repeat_interleave(n_data, dim=0)
+        # pcd2 = self.pcd2.unsqueeze(0).repeat_interleave(n_data, dim=0)
+        
+        # pcd1_embed_repeated = self.pcd1_embed.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
+        # pcd2_embed_repeated = self.pcd2_embed.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
+        
+        # prediction = self.model.forward_from_embed(pcd1_embed_repeated.to(self.device), pcd2_embed_repeated.to(self.device), SE3.view(-1, 12).to(self.device))
+        # prediction = prediction.view(n_data, n_pairs, 1)
+        
+        return pair_indices, SE3
+        
+    def calculate_min_distance(self, X, return_pairwise=False):
         assert self.env.n_dof == X.shape[1]
         
         n_data = len(X)
@@ -195,7 +221,13 @@ class Pairwise2Global:
         prediction = prediction.view(n_data, n_pairs, 1)
         
         output = prediction.min(dim=1).values
-        return output
+        if return_pairwise:
+            return prediction
+        else:
+            return output
     
-    def __call__(self, X):
-        return self.calculate_min_distance(X)
+    def __call__(self, X, **kwarg):
+        return self.calculate_min_distance(X, **kwarg)
+    
+    def get_device(self):
+        return self.device
