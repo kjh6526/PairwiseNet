@@ -144,9 +144,9 @@ class MultiPanda:
                 body_info['hppfcl_objs'] = tmphppfclCollisionObjects
                 self.obstacles.append(body_info)
         
-        self.verbose = kwargs.get('verbose', False)
-        collision_pairs_config = kwargs.get('collision_pairs_config', {})
-        self._check_valid_collision_pairs(**collision_pairs_config, pbar=self.verbose)
+        # self.verbose = kwargs.get('verbose', False)
+        # collision_pairs_config = kwargs.get('collision_pairs_config', {})
+        # self._check_valid_collision_pairs(**collision_pairs_config, pbar=self.verbose)
         
     def set_inputs(self, q, skip_fcl=False):
         assert len(q) == self.n_dof
