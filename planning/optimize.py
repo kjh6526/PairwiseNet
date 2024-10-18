@@ -23,6 +23,9 @@ class TrajectoryOptimizer:
         self.col_thr = col_thr[0]
         self.col_ineq = col_thr[1]
         
+        self.optimizer = to_cfg.get('optimizer', 'adam')
+        self.lr = to_cfg.get('lr', 0.01)
+        
     def optimize(self, curve, col_model, device, env, iteration=1000, pbar=False, verbose=True, **kwargs):
         
         results = {}
@@ -31,15 +34,17 @@ class TrajectoryOptimizer:
         results['dX_hist'] = []
         results['loss_hist'] = []
         
-        plotly_figwidget = kwargs.get('figwidget', None)
-        
         num_samples = self.num_sample
         mu_g = torch.ones(num_samples).to(device) * self.mu_g
         mu_v = torch.ones(1).to(device) * self.mu_v
         
         col_thr = self.col_thr
-        
-        opt = torch.optim.Adam(curve.parameters(), lr=0.01)
+        if self.optimizer == 'adam':
+            opt = torch.optim.Adam(curve.parameters(), lr=self.lr)
+        elif self.optimizer == 'sgd':
+            opt = torch.optim.SGD(curve.parameters(), lr=self.lr, momentum=0.9)
+        else:
+            raise NotImplementedError
         
         if verbose:
             print(now() + ' Trajectory Optimization Start.')
@@ -47,9 +52,10 @@ class TrajectoryOptimizer:
         min_loss = 1e10
         best_curve = None
         
-        loss_pbar = progress_tracker(total=1, disable=not pbar, desc='Loss', ncols=100)
-        f_pbar    = progress_tracker(total=1, disable=not pbar, desc='length', ncols=100)
-        g_pbar    = progress_tracker(total=1, disable=not pbar, desc='ineq_const', ncols=100)
+        loss_pbar = progress_tracker(total=1, disable=not pbar, desc='Loss')
+        f_pbar    = progress_tracker(total=1, disable=not pbar, desc='length')
+        g_pbar    = progress_tracker(total=1, disable=not pbar, desc='ineq_const')
+        dX_pbar   = progress_tracker(total=1, disable=not pbar, desc='cartesian_length')
         
         for _ in trange(iteration, disable=not pbar, desc='Opt.', ncols=100):
             opt.zero_grad()
@@ -59,7 +65,6 @@ class TrajectoryOptimizer:
                 f = curve.length(func=env.get_Ps)
             elif self.length == 'joint+cartesian':
                 f = curve.length() + curve.length(func=env.get_Ps)
-            # f = curve.velocity(torch.rand(num_samples)).norm(dim=1).mean()
             
             sampled_ts = torch.rand(num_samples).to(curve.device)
             sample_points = curve(sampled_ts)
@@ -71,13 +76,13 @@ class TrajectoryOptimizer:
             
             lin_ts = torch.linspace(0, 1, num_samples).to(curve.device)
             lin_points = curve(lin_ts)
-            lin_Xs = env.get_Ps(lin_points)
+            lin_Xs = env.get_Ts_objects(lin_points)[:, :, :3, 3]
             dX = (lin_Xs[1:] - lin_Xs[:-1]).norm(dim=2).max() * num_samples
             g_dX = mu_v * dX
 
             # loss = f + g
-            # loss = f + g + g_dX
-            loss = f + g + g_dX + ((min_dist - col_thr)**2).mean()
+            loss = f + g + g_dX
+            # loss = f + g + g_dX + ((min_dist - col_thr)**2).mean()
             
             loss.backward()
             opt.step()
@@ -90,17 +95,7 @@ class TrajectoryOptimizer:
             loss_pbar.update(loss.item())
             f_pbar.update(f.item())
             g_pbar.update(g.item())
-            
-            if plotly_figwidget:
-                for plot in plotly_figwidget.data:
-                    if plot.name == 'loss':
-                        plot.y += (results['loss_hist'][-1], )
-                    elif plot.name == 'g':
-                        plot.y += (results['g_hist'][-1], )
-                    elif plot.name == 'dX':
-                        plot.y += (results['dX_hist'][-1], )
-                    elif plot.name == 'f':
-                        plot.y += (results['f_hist'][-1], )
+            dX_pbar.update(g_dX.item())
             
             if min_loss > loss.item() and g.item() < 1e-5:
                 min_loss = loss.item()
