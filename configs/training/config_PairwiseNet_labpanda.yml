@@ -9,9 +9,6 @@ logger:
 model:
   name: 'PairwiseNet'
   encoder:
-    pretrain: False
-    # finetune: False
-    # root: 'results/20240705-152517/model_best.pkl'
     name: DGCNN
     k: 5
     leakyrelu_slope: 0.2
@@ -32,29 +29,23 @@ model:
 data:
   training:
     dataset: 'pairwise'
-    root: 'datasets/Multiarm_Pairwise/20240710-181131_3000000_100'
+    root: datasets/labpanda/20241017-194156_pairwise_3000000
     batch_size: 1000
     n_workers: 4
     split: training
     shuffle: True
 
-    random_pcds: True
-    n_pcd: 100
-
   validation: 
     dataset: 'pairwise'
-    root: 'datasets/Multiarm_Pairwise/20240710-181131_3000000_100'
+    root: datasets/labpanda/20241017-194156_pairwise_3000000
     batch_size: 1000
     n_workers: 4
     split: validation
     shuffle: True
-
-    random_pcds: True
-    n_pcd: 100
   
   test:
     dataset: 'global'
-    root: 'datasets/fourarm/20240704-184347_global_1000000'
+    root: datasets/labpanda/20240402-154342_global_1000000
     batch_size: 1000
     n_workers: 4
     split: all

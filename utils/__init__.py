@@ -1,5 +1,10 @@
+import torch
+from omegaconf import OmegaConf
 from tqdm.auto import tqdm
-import time, yaml
+import time, yaml, os
+
+os.path.join('..')
+from training.model import get_model
 
 class progress_tracker():
     def __init__(self, **kwargs):
@@ -65,3 +70,27 @@ def get_info_from_cfg(cfg, keys):
             raise ValueError(f'key {key} not found in the config file')
         
     return output
+
+def get_model_from_result_dir(result_dir, device='cpu', best_model_suffix='best.pkl'):
+    """_summary_
+    Args:
+        result_dir (str): path to the result directory
+
+    Returns:
+        model: torch model
+        cfg: OmegaConf Config
+    """
+    
+    cfg, best_model = None, None
+    for file in os.listdir(result_dir):
+        if file.endswith('yml'):
+            cfg = OmegaConf.load(os.path.join(result_dir, file))
+        if file.endswith(best_model_suffix):
+            best_model = torch.load(os.path.join(result_dir, file))
+
+    assert cfg is not None, 'cfg file does not exist.'
+    assert best_model is not None, 'best_model does not exist.'
+
+    model = get_model(cfg.model).to(device)
+    model.load_state_dict(best_model['model_state'])
+    return model, cfg

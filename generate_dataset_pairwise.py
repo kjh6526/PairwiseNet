@@ -238,7 +238,7 @@ if __name__ == "__main__":
     env_fig = env.plot()
     
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    run_id = f'{run_id}_pairwise({pair_distribution})_{n_data}'
+    run_id = f'{run_id}_pairwise_{n_data}'
     
     dataset_path = os.path.join('datasets', cfg.id, run_id)
     os.makedirs(dataset_path, exist_ok=False)
