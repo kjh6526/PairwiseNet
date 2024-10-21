@@ -69,9 +69,10 @@ class LangevinMCSampler:
         self.sigma = kwargs.get('sigma', 0.3)
         self.step_sigma = kwargs.get('step_sigma', 0.05)
         self.iteration = kwargs.get('iteration', 1000)
-        self.o_target = kwargs.get('output_target', 0.01)
+        self.o_target = kwargs.get('output_target', 0.0)
         self.thr_lb = kwargs.get('thr_lb', 0.0)
         self.step = kwargs.get('step', 0.1)
+        self.topk = kwargs.get('topk', None) # None or int, only for PairwiseNet model
     
     def sample(self, n, ub, lb, model, **kwargs):
         device = model.get_device()
@@ -82,8 +83,10 @@ class LangevinMCSampler:
         X = X * (ub-lb).repeat(n, 1) + lb.repeat(n, 1)
         
         def Px_fn(X):
-            fx = model(X).squeeze()
-            # fx = model(X, return_pairwise=True).squeeze().mean(dim=1)
+            if self.topk is not None:
+                fx = model(X, return_pairwise=True).squeeze().topk(self.topk, dim=1, largest=False).values.mean(dim=1)
+            else:
+                fx = model(X).squeeze()
             Ex = (fx-self.o_target)**2 / self.sigma**2
             Px = torch.exp(-Ex)
             return Px
