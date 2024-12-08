@@ -1,10 +1,12 @@
 import torch
 from omegaconf import OmegaConf
 from tqdm.auto import tqdm
-import time, yaml, os
+import time, yaml, os, copy
 
-os.path.join('..')
-from training.model import get_model
+import open3d as o3d
+
+# os.path.join('..')
+# from training.model import get_model
 
 class progress_tracker():
     def __init__(self, **kwargs):
@@ -71,26 +73,42 @@ def get_info_from_cfg(cfg, keys):
         
     return output
 
-def get_model_from_result_dir(result_dir, device='cpu', best_model_suffix='best.pkl'):
+# def get_model_from_result_dir(result_dir, device='cpu', best_model_suffix='best.pkl'):
+#     """_summary_
+#     Args:
+#         result_dir (str): path to the result directory
+
+#     Returns:
+#         model: torch model
+#         cfg: OmegaConf Config
+#     """
+    
+#     cfg, best_model = None, None
+#     for file in os.listdir(result_dir):
+#         if file.endswith('yml'):
+#             cfg = OmegaConf.load(os.path.join(result_dir, file))
+#         if file.endswith(best_model_suffix):
+#             best_model = torch.load(os.path.join(result_dir, file))
+
+#     assert cfg is not None, 'cfg file does not exist.'
+#     assert best_model is not None, 'best_model does not exist.'
+
+#     model = get_model(cfg.model).to(device)
+#     model.load_state_dict(best_model['model_state'])
+#     return model, cfg
+
+def make_convex_mesh(mesh):
     """_summary_
     Args:
-        result_dir (str): path to the result directory
+        mesh (o3d.geometry.TriangleMesh): input mesh
 
     Returns:
-        model: torch model
-        cfg: OmegaConf Config
+        o3d.geometry.TriangleMesh: convex hull of the input mesh
     """
-    
-    cfg, best_model = None, None
-    for file in os.listdir(result_dir):
-        if file.endswith('yml'):
-            cfg = OmegaConf.load(os.path.join(result_dir, file))
-        if file.endswith(best_model_suffix):
-            best_model = torch.load(os.path.join(result_dir, file))
-
-    assert cfg is not None, 'cfg file does not exist.'
-    assert best_model is not None, 'best_model does not exist.'
-
-    model = get_model(cfg.model).to(device)
-    model.load_state_dict(best_model['model_state'])
-    return model, cfg
+    convex_mesh = copy.deepcopy(mesh)
+    convex_mesh.remove_duplicated_vertices()
+    convex_mesh.remove_duplicated_triangles()
+    convex_mesh.remove_degenerate_triangles()
+    convex_mesh.compute_convex_hull()
+    convex_mesh.orient_triangles()
+    return convex_mesh

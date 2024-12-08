@@ -1,12 +1,13 @@
 import torch
 import open3d as o3d
 
-import os
+import os, copy
 import fcl
 import hppfcl
 from scipy.spatial.transform import Rotation as Rot
 
 from envs.lib.LieGroup import *
+from utils import make_convex_mesh
 
 class Panda:
     def __init__(self, T_base=np.eye(4), T_ee=np.eye(4), hand=False, finger=False, device='cpu', collision_shape='mesh', mesh_type='simplified'):
@@ -111,10 +112,18 @@ class Panda:
         self.vertices = [torch.tensor(np.asarray(mesh.vertices), dtype=torch.float).to(device) for mesh in self.meshes]
         self.triangles = [torch.tensor(np.asarray(mesh.triangles), dtype=torch.int).to(device) for mesh in self.meshes]
         
+        self.convex_meshes = [make_convex_mesh(mesh) for mesh in self.meshes]
+        self.convex_vertices = [torch.tensor(np.asarray(mesh.vertices), dtype=torch.float) for mesh in self.convex_meshes]
+        self.convex_triangles = [torch.tensor(np.asarray(mesh.triangles), dtype=torch.int) for mesh in self.convex_meshes]
+        
         if self.hand:
             self.meshes.append(o3d.io.read_triangle_mesh(os.path.join(MESH_PATH, f'hand.stl')))
             self.vertices.append(torch.tensor(np.asarray(self.meshes[-1].vertices), dtype=torch.float).to(device))
             self.triangles.append(torch.tensor(np.asarray(self.meshes[-1].triangles), dtype=torch.int).to(device))
+            
+            self.convex_meshes.append(make_convex_mesh(self.meshes[-1]))
+            self.convex_vertices.append(torch.tensor(np.asarray(self.convex_meshes[-1].vertices), dtype=torch.float).to(device))
+            self.convex_triangles.append(torch.tensor(np.asarray(self.convex_meshes[-1].triangles), dtype=torch.int).to(device))
             
             if self.finger:
                 raise NotImplementedError
@@ -122,88 +131,98 @@ class Panda:
                 self.meshes.append(o3d.io.read_triangle_mesh(os.path.join(MESH_PATH, f'panda_fingerbox.obj')))
                 self.vertices.append(torch.tensor(np.asarray(self.meshes[-1].vertices), dtype=torch.float).to(device))
                 self.triangles.append(torch.tensor(np.asarray(self.meshes[-1].triangles), dtype=torch.int).to(device))
+                
+                self.convex_meshes.append(make_convex_mesh(self.meshes[-1]))
+                self.convex_vertices.append(torch.tensor(np.asarray(self.convex_meshes[-1].vertices), dtype=torch.float).to(device))
+                self.convex_triangles.append(torch.tensor(np.asarray(self.convex_meshes[-1].triangles), dtype=torch.int).to(device))
+                
         
         self.collision_shape = collision_shape
         self.fclCollisionObjects = []
+        self.convex_fclCollisionObjects = []
         self.hppfclCollisionObjects = []
+        self.capsule_fclCollisionObjects = []
         
-        if self.collision_shape == 'mesh':
-            for idx in range(len(self.vertices)):
-                tmpV = self.vertices[idx]
-                tmpT = self.triangles[idx]
-                tmpshape = fcl.BVHModel()
-                tmpshape.beginModel(len(tmpV), len(tmpT))
-                tmpshape.addSubModel(tmpV.cpu().numpy(), tmpT.cpu().numpy())
-                tmpshape.endModel()
-                tmpobj = fcl.CollisionObject(tmpshape, fcl.Transform())
-                self.fclCollisionObjects.append(tmpobj)
-                
-                V_hpp = hppfcl.StdVec_Vec3f()
-                T_hpp = hppfcl.StdVec_Triangle()
-                V_hpp.extend([tmpV[i].cpu().numpy() for i in range(len(tmpV))])
-                for idx in range(len(tmpT)):
-                    T_hpp.append(hppfcl.Triangle(tmpT[idx, 0].item(), tmpT[idx, 1].item(), tmpT[idx, 2].item()))
-                
-                hppobj = hppfcl.CollisionObject(hppfcl.Convex(V_hpp, T_hpp))
-                hppobj.setTransform(hppfcl.Transform3f.Identity())
-                self.hppfclCollisionObjects.append(hppobj)
+        for idx in range(len(self.vertices)):
+            tmpV = self.vertices[idx]
+            tmpT = self.triangles[idx]
+            tmpshape = fcl.BVHModel()
+            tmpshape.beginModel(len(tmpV), len(tmpT))
+            tmpshape.addSubModel(tmpV.cpu().numpy(), tmpT.cpu().numpy())
+            tmpshape.endModel()
+            tmpobj = fcl.CollisionObject(tmpshape, fcl.Transform())
+            self.fclCollisionObjects.append(tmpobj)
+            
+            tmpV = self.convex_vertices[idx]
+            tmpT = self.convex_triangles[idx]
+            tmpfaces = torch.cat([torch.ones(len(tmpT), 1, dtype=torch.int).to(tmpT)*3, tmpT], dim=1).flatten()
+            tmpshape = fcl.Convex(tmpV.cpu().numpy(), len(tmpT), tmpfaces.cpu().numpy())
+            tmpconvexobj = fcl.CollisionObject(tmpshape, fcl.Transform())
+            self.convex_fclCollisionObjects.append(tmpconvexobj)
+            
+            V_hpp = hppfcl.StdVec_Vec3f()
+            T_hpp = hppfcl.StdVec_Triangle()
+            V_hpp.extend([tmpV[i].cpu().numpy() for i in range(len(tmpV))])
+            for idx in range(len(tmpT)):
+                T_hpp.append(hppfcl.Triangle(tmpT[idx, 0].item(), tmpT[idx, 1].item(), tmpT[idx, 2].item()))
+            
+            hppobj = hppfcl.CollisionObject(hppfcl.Convex(V_hpp, T_hpp))
+            hppobj.setTransform(hppfcl.Transform3f.Identity())
+            self.hppfclCollisionObjects.append(hppobj)
         
-        elif self.collision_shape == 'capsule':
+        # Capsule fcl 
+        p1_list = [
+            [-0.05465271, -0.00160026,  0.01809338],
+            [-0.00020431,  0.00631866, -0.14863947],
+            [-0.00611539, -0.14765818,  0.00210107],
+            [ 0.07971434,  0.04523061, -0.00080541],
+            [-0.08218869,  0.08021483,  0.00232922],
+            [-1.5345939e-04,  8.8221747e-03, -2.3295735e-01],
+            [0.08474172, 0.00705573, 0.0045368 ],
+            [0.03195187, 0.03167332, 0.06886173]
+        ]
+        p2_list = [
+            [-3.6190036e-03,  5.1440922e-05,  5.1162861e-02],
+            [ 0.00130181, -0.05217966, -0.00339115],
+            [ 0.0010172,  -0.0026326,   0.05261712],
+            [ 0.00334147, -0.00450623, -0.07987815],
+            [-0.00809085,  0.00193277,  0.04148006],
+            [-0.00389436,  0.0633805,  -0.00224684],
+            [ 2.5954140e-02, -1.0050392e-03, -2.5985579e-05],
+            [-0.00688292, -0.00610242,  0.07171543]
+        ]
+        r_list = [
+            0.10731089115142822,
+            0.07845213264226913,
+            0.07795113325119019,
+            0.0734412893652916,
+            0.07551460713148117,
+            0.0707956999540329,
+            0.07869726419448853,
+            0.05470610037446022
+        ]
+        p1s = torch.tensor(p1_list)
+        p2s = torch.tensor(p2_list)
+        rs = torch.tensor(r_list)
+        
+        self.T_capsule = torch.eye(4, device=device).unsqueeze(0).repeat_interleave(self.n_dof+1, dim=0)
+        
+        for idx, (p1, p2, r) in enumerate(zip(p1s, p2s, rs)):
+            h = torch.norm(p1-p2)
+            tmp_geom = fcl.Capsule(r, h)
             
-            assert not self.hand, 'Hand is not supported for capsule collision shape'
+            v = p2-p1
+            w = torch.cross(torch.tensor([0.0, 0.0, 1.0]), v)
+            w = w / torch.norm(w)
             
-            p1_list = [
-                [-0.05465271, -0.00160026,  0.01809338],
-                [-0.00020431,  0.00631866, -0.14863947],
-                [-0.00611539, -0.14765818,  0.00210107],
-                [ 0.07971434,  0.04523061, -0.00080541],
-                [-0.08218869,  0.08021483,  0.00232922],
-                [-1.5345939e-04,  8.8221747e-03, -2.3295735e-01],
-                [0.08474172, 0.00705573, 0.0045368 ],
-                [0.03195187, 0.03167332, 0.06886173]
-            ]
-            p2_list = [
-                [-3.6190036e-03,  5.1440922e-05,  5.1162861e-02],
-                [ 0.00130181, -0.05217966, -0.00339115],
-                [ 0.0010172,  -0.0026326,   0.05261712],
-                [ 0.00334147, -0.00450623, -0.07987815],
-                [-0.00809085,  0.00193277,  0.04148006],
-                [-0.00389436,  0.0633805,  -0.00224684],
-                [ 2.5954140e-02, -1.0050392e-03, -2.5985579e-05],
-                [-0.00688292, -0.00610242,  0.07171543]
-            ]
-            r_list = [
-                0.10731089115142822,
-                0.07845213264226913,
-                0.07795113325119019,
-                0.0734412893652916,
-                0.07551460713148117,
-                0.0707956999540329,
-                0.07869726419448853,
-                0.05470610037446022
-            ]
-            p1s = torch.tensor(p1_list)
-            p2s = torch.tensor(p2_list)
-            rs = torch.tensor(r_list)
+            theta = torch.arccos(torch.dot(torch.tensor([0.0, 0.0, 1.0]), v) / torch.norm(v))
+            T_link = torch.eye(4)
+            T_link[:3, :3] = torch.matrix_exp(skew_so3((w*theta).unsqueeze(0)).squeeze())
+            T_link[:3, 3] = p1 + T_link[:3, :3] @ torch.tensor([0.0, 0.0, h/2])
             
-            self.T_capsule = torch.eye(4, device=device).unsqueeze(0).repeat_interleave(self.n_dof+1, dim=0)
+            self.T_capsule[idx] = T_link.to(self.T_capsule)
             
-            for idx, (p1, p2, r) in enumerate(zip(p1s, p2s, rs)):
-                h = torch.norm(p1-p2)
-                tmp_geom = fcl.Capsule(r, h)
-                
-                v = p2-p1
-                w = torch.cross(torch.tensor([0.0, 0.0, 1.0]), v)
-                w = w / torch.norm(w)
-                
-                theta = torch.arccos(torch.dot(torch.tensor([0.0, 0.0, 1.0]), v) / torch.norm(v))
-                T_link = torch.eye(4)
-                T_link[:3, :3] = torch.matrix_exp(skew_so3((w*theta).unsqueeze(0)).squeeze(0))
-                T_link[:3, 3] = p1 + T_link[:3, :3] @ torch.tensor([0.0, 0.0, h/2])
-                
-                self.T_capsule[idx] = T_link.to(self.T_capsule)
-                
-                self.fclCollisionObjects.append(fcl.CollisionObject(tmp_geom, fcl.Transform()))
+            self.capsule_fclCollisionObjects.append(fcl.CollisionObject(tmp_geom, fcl.Transform()))
         
         self.device = device 
         
@@ -334,6 +353,36 @@ class Panda:
                 self.fclCollisionObjects[idx].setTransform(tmp_transform)
                 
         return self.fclCollisionObjects
+    
+    def convex_fcl_objs(self, jointPos, **kwargs):
+        _, T_sj = self.solveForwardKinematics(jointPos, return_T_link=True)
+
+        for idx in range(len(self.convex_fclCollisionObjects)):
+            if idx == 0:
+                Transform = self.T_base
+            else:
+                Transform = T_sj[idx-1]
+                
+            tmp_transform = fcl.Transform(Transform[:3, :3].cpu(), Transform[:3, 3].cpu())
+            
+            self.convex_fclCollisionObjects[idx].setTransform(tmp_transform)
+                
+        return self.convex_fclCollisionObjects
+    
+    def capsule_fcl_objs(self, jointPos, **kwargs):
+        _, T_sj = self.solveForwardKinematics(jointPos, return_T_link=True)
+
+        for idx in range(len(self.capsule_fclCollisionObjects)):
+            if idx == 0:
+                Transform = self.T_base @ self.T_capsule[idx]
+            else:
+                Transform = T_sj[idx-1] @ self.T_capsule[idx]
+                
+            tmp_transform = fcl.Transform(Transform[:3, :3].cpu(), Transform[:3, 3].cpu())
+            
+            self.capsule_fclCollisionObjects[idx].setTransform(tmp_transform)
+                
+        return self.capsule_fclCollisionObjects
     
     def hppfcl_objs(self, jointPos, **kwargs):
         _, T_sj = self.solveForwardKinematics(jointPos, return_T_link=True)
