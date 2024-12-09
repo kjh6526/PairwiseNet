@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils import data
 
 from training.loader.global_dataset import Global
-from training.loader.pairwise_dataset import Pairwise
+from training.loader.pairwise_dataset import Pairwise, Pairwise_pairlabel
 from training.loader.pcd_dataset import Pcd
 
 def get_dataloader(data_dict, **kwargs):
@@ -24,6 +24,8 @@ def get_dataset(data_dict, **kwargs):
         dataset = Pairwise(**data_dict, **kwargs)
     elif name == 'pcd':
         dataset = Pcd(**data_dict, **kwargs)
+    elif name == 'pairwise_pairlabel':
+        dataset = Pairwise_pairlabel(**data_dict, **kwargs)
     else:
         raise NotImplementedError
     

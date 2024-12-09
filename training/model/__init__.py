@@ -5,7 +5,7 @@ import sys, os
 
 from training.model.dgcnn import DGCNN
 from training.model.MLP_pcd import MLP_PointCloud
-from training.model.PairwiseNet import PairwiseNet
+from training.model.PairwiseNet import PairwiseNet, PairwiseNet_pairlabel
 from training.model.PcdEncoder import PcdEncoder
 
 def get_model(model_cfg, **kwargs):
@@ -21,6 +21,8 @@ def _get_model_instance(name):
             'PairwiseNet': get_PairwiseNet,
             'MLP_pcd': get_MLP_pcd,
             'PCD_autoencoder': get_PCD_autoencoder,
+            
+            'PairwiseNet_pairlabel': get_PairwiseNet_pairlabel,
         }[name]
     except:
         raise (f'Model {name} not available.')
@@ -57,6 +59,18 @@ def get_PairwiseNet(model_dict, **kwargs):
                         last_activation=model_dict.last_activation,
                         output_dims=model_dict.output_dims,
                         **kwargs)
+    return model
+
+def get_PairwiseNet_pairlabel(model_dict, **kwargs):
+    model = PairwiseNet_pairlabel(
+        label_dims=model_dict.label_dims,
+        hidden_nodes=model_dict.hidden_nodes,
+        activation=model_dict.activation,
+        last_activation=model_dict.last_activation,
+        output_dims=model_dict.output_dims,
+        **kwargs
+    )
+    
     return model
 
 def get_PCD_autoencoder(model_dict, **kwargs):

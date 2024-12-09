@@ -23,8 +23,9 @@ import plotly.io as pio
 import plotly.subplots as sp
 plotly_layout = dict(margin=dict(l=20, r=20, t=20, b=20))
 
+import pybullet as p
+
 from training.model.activations import get_activation
-from envs import get_env
 from envs.lib.LieGroup import invSE3
 
 class PairwiseNet(nn.Module):
@@ -218,6 +219,216 @@ class Pairwise2Global:
         SE3 = T_12[:, :3, :].view(-1, 12)
         
         prediction = self.model.forward_from_embed(pcd1_embed_repeated.to(self.device), pcd2_embed_repeated.to(self.device), SE3.to(self.device))
+        prediction = prediction.view(n_data, n_pairs, 1)
+        
+        output = prediction.min(dim=1).values
+        if return_pairwise:
+            return prediction
+        else:
+            return output
+    
+    def __call__(self, X, **kwarg):
+        return self.calculate_min_distance(X, **kwarg)
+    
+    def get_device(self):
+        return self.device
+    
+    
+class PairwiseNet_pairlabel(nn.Module):
+    def __init__(
+        self, 
+        label_dims=32,
+        hidden_nodes=[128, 128, 128],
+        activation='relu',
+        last_activation='relu',
+        output_dims=1, 
+        **kwargs
+    ):
+        super(PairwiseNet_pairlabel, self).__init__()
+        
+        self.output_dims = output_dims
+        self.label_dims = label_dims
+        
+        self.nodes = [self.label_dims*2 + 12] + list(hidden_nodes) + [self.output_dims]
+        self.activation = get_activation(name=activation)
+        
+        self.last_activation = get_activation(name=last_activation)
+        self.layers = torch.nn.ModuleList()
+        
+        for layer_idx in range(len(self.nodes)-1):
+            self.layers.append(torch.nn.Linear(self.nodes[layer_idx], self.nodes[layer_idx+1]))
+    
+    def forward(self, label1, label2, SE3):
+
+        x = torch.cat([label1, label2, SE3], dim=1)
+        
+        for layer_idx in range(len(self.layers)-1):
+            x = self.layers[layer_idx](x)
+            x = self.activation(x)
+        x = self.layers[-1](x)
+        x = self.last_activation(x)
+        
+        return x
+    
+    def get_device(self):
+        return list(self.parameters())[0].device
+
+    def save(self, path):
+        torch.save({'state_dict': self.state_dict()}, path)
+        
+    def train_step(self, label1, label2, SE3, y, criterion, optimizer, **kwargs):
+        optimizer.zero_grad()
+        output = self(label1, label2, SE3)
+        loss = criterion(output, y)
+        loss.backward()
+        optimizer.step()
+        return {"loss": loss.item()}
+    
+    def validation_step(self, label1, label2, SE3, y, criterion, **kwargs):
+        output = self(label1, label2, SE3)
+        loss = criterion(output, y)
+        return {"loss": loss.item()}
+    
+    def eval_step(self, test_dl, env, cfg, **kwargs):
+        device = kwargs['device']
+        collision_thr = kwargs.get('collision_thr', 0.0)
+        
+        checker = self.get_checker(cfg, env)
+        
+        output = [None]*len(test_dl)
+        target = [None]*len(test_dl)
+        label  = [None]*len(test_dl)
+        pred   = [None]*len(test_dl)
+
+        b_idx = 0
+        for x, y in tqdm(test_dl, disable=not kwargs.get('pbar', True), ncols=100, desc='eval'):
+            o = checker(x.to(device)).squeeze().detach().cpu()
+            p = (o < collision_thr).type(torch.int)
+            output[b_idx] = o
+            pred[b_idx] = p 
+
+            lb = (y.squeeze() < collision_thr).type(torch.int)
+            target[b_idx] = y.squeeze()
+            label[b_idx] = lb.squeeze()
+            b_idx += 1
+
+        output = torch.cat(output)
+        target = torch.cat(target)
+        label = torch.cat(label)
+        pred = torch.cat(pred)
+        
+        accu = ((output < collision_thr) == label).sum() / len(output)
+        auroc = get_auroc(-output, label)
+        
+        safe_thr = output[label == 1].max()
+
+        mse = torch.nn.MSELoss()(output, target)
+
+        FP = ((output <= safe_thr) & (label == 0)).type(torch.int).sum()
+        TN = ((output > safe_thr) & (label == 0)).type(torch.int).sum()
+        safe_FPR = FP / (FP+TN)
+
+        return {
+            'eval/accuracy_': accu,
+            'eval/AUROC_': auroc,
+            'eval/mse_': mse,
+            'eval/safe_FPR_': safe_FPR,
+        }
+        
+    def visualization_step(self, **kwargs):
+        return {}
+    
+    def get_checker(self, cfg, env):
+        return Pairwise2Global_pairlabel(self, cfg, env)
+    
+class Pairwise2Global_pairlabel:
+    def __init__(self, model, cfg, env, **kwargs):
+        self.model = model
+        self.cfg = cfg
+        self.device = self.model.get_device()
+        self.env = env
+        
+        self.collision_pairs = torch.as_tensor(env.collision_pairs).type(torch.int64)
+        
+        mesh2Mid_dict = {}
+        object_mesh_files = []
+        for o_idx in range(self.env.n_objects):
+            bID, lID = self.env.env_bullet.idx2id(o_idx)
+            linkinfo = p.getVisualShapeData(bID)[lID+1]
+            meshfile = linkinfo[4].decode('ascii')
+            object_mesh_files.append(meshfile)
+            if meshfile not in mesh2Mid_dict:
+                mesh2Mid_dict[meshfile] = len(mesh2Mid_dict)
+
+        # mesh name -> Mid
+        mesh2Mid_map = np.vectorize(mesh2Mid_dict.get)
+
+        # Oid  : Object ID, 0 ~ env.n_objects-1
+        # Object id -> mesh name
+        Oid2mesh_dict = dict(zip(np.arange(len(object_mesh_files)), object_mesh_files))    
+        Oid2mesh_map = np.vectorize(Oid2mesh_dict.get)
+        
+        # Object id -> mesh name -> Mid
+        collision_pairs_Mid = Oid2mesh_map(self.collision_pairs.cpu().numpy())
+        self.collision_pairs_Mid = torch.tensor( 
+            mesh2Mid_map(collision_pairs_Mid), 
+            dtype=self.collision_pairs.dtype, 
+            device=self.collision_pairs.device
+        ) 
+        
+        label1s = []
+        label2s = []
+        for b_idx in range(len(self.collision_pairs)):
+            label1 = torch.nn.functional.one_hot(self.collision_pairs_Mid[b_idx, 0], num_classes=self.model.label_dims)
+            label2 = torch.nn.functional.one_hot(self.collision_pairs_Mid[b_idx, 1], num_classes=self.model.label_dims)
+            label1s.append(label1)
+            label2s.append(label2)
+            
+        self.label1 = torch.stack(label1s, dim=0)
+        self.label2 = torch.stack(label2s, dim=0)
+        
+        self.model.eval()
+        
+    def joint2pairwise(self, X):
+        n_data = len(X)
+        n_pairs = len(self.collision_pairs)
+        
+        SE3 = self.env.get_Ts_objects(X).to(self.device)
+        T_1 = SE3[:, self.collision_pairs[:, 0]].view(n_data*n_pairs, 4, 4)
+        T_2 = SE3[:, self.collision_pairs[:, 1]].view(n_data*n_pairs, 4, 4)
+        T_12 = invSE3(T_1) @ T_2
+        SE3 = T_12[:, :3, :].view(n_data, n_pairs, 12)
+        
+        pair_indices = self.collision_pairs.unsqueeze(0).repeat_interleave(n_data, dim=0)
+        
+        # pcd1 = self.pcd1.unsqueeze(0).repeat_interleave(n_data, dim=0)
+        # pcd2 = self.pcd2.unsqueeze(0).repeat_interleave(n_data, dim=0)
+        
+        # pcd1_embed_repeated = self.pcd1_embed.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
+        # pcd2_embed_repeated = self.pcd2_embed.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
+        
+        # prediction = self.model.forward_from_embed(pcd1_embed_repeated.to(self.device), pcd2_embed_repeated.to(self.device), SE3.view(-1, 12).to(self.device))
+        # prediction = prediction.view(n_data, n_pairs, 1)
+        
+        return pair_indices, SE3
+        
+    def calculate_min_distance(self, X, return_pairwise=False):
+        assert self.env.n_dof == X.shape[1]
+        
+        n_data = len(X)
+        SE3 = self.env.get_Ts_objects(X).to(self.device)
+
+        n_pairs = len(self.collision_pairs)
+
+        T_1 = SE3[:, self.collision_pairs[:, 0]].view(n_data*n_pairs, 4, 4)
+        T_2 = SE3[:, self.collision_pairs[:, 1]].view(n_data*n_pairs, 4, 4)
+        T_12 = invSE3(T_1) @ T_2
+
+        label1_repeated = self.label1.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
+        label2_repeated = self.label2.unsqueeze(0).repeat_interleave(n_data, dim=0).view(n_data*n_pairs, -1)
+        SE3 = T_12[:, :3, :].view(-1, 12)
+        
+        prediction = self.model.forward(label1_repeated.to(self.device), label2_repeated.to(self.device), SE3.to(self.device))
         prediction = prediction.view(n_data, n_pairs, 1)
         
         output = prediction.min(dim=1).values

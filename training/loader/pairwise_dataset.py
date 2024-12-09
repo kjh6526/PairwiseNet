@@ -81,3 +81,54 @@ class Pairwise(torch.utils.data.Dataset):
         
         pcd_object = self.rand_pcds[idx][:, torch.randperm(self.rand_pcds[idx].shape[1])[:self.n_pcd]]
         return pcd_object
+    
+    
+class Pairwise_pairlabel(torch.utils.data.Dataset):
+    def __init__(self, **kwargs):
+        self.root = kwargs['root']
+        self.label_dims = kwargs['label_dims']
+        split = kwargs['split']
+        
+        pair_indices = torch.load(os.path.join(self.root, 'pair_indices.pt')).type(torch.int64)
+        SE3 = torch.load(os.path.join(self.root, 'T_12.pt')).type(torch.float)
+        y = torch.load(os.path.join(self.root, 'distances.pt')).type(torch.float)
+        
+        with open(os.path.join(self.root, 'Mid2mesh_dict.json'), 'r') as f:
+            Mid2mesh_dict = json.load(f)
+        Mid2mesh_dict = {int(k):v for k,v in Mid2mesh_dict.items()}
+        self.n_objects = len(Mid2mesh_dict)
+        
+        assert self.label_dims >= self.n_objects, f"Label dimensions must be greater than or equal to the number of objects. Got {label_dims} and {self.n_objects} respectively."
+        
+        SE3 = SE3[:, :3, :].view(-1, 12)
+        
+        split_train_val_test = (5/7, 1/7, 1/7)
+        num_train_data = int(len(y) * split_train_val_test[0])
+        num_valid_data = int(len(y) * split_train_val_test[1]) 
+        
+        idx = torch.arange(len(y))
+        if split == "training":
+            idx = idx[:num_train_data]
+        elif split == "validation":
+            idx = idx[num_train_data:num_train_data + num_valid_data]
+        elif split == "test":
+            idx = idx[num_train_data + num_valid_data:]
+        elif split == "all":
+            pass
+
+        self.pair_indices = pair_indices[idx]
+        self.SE3 = SE3[idx]
+        self.y = y[idx]
+    
+    def __len__(self):
+        return len(self.y)
+    
+    def __getitem__(self, idx):
+        pair = self.pair_indices[idx]
+        label1 = torch.nn.functional.one_hot(pair[0], num_classes=self.label_dims)
+        label2 = torch.nn.functional.one_hot(pair[1], num_classes=self.label_dims)
+        SE3 = self.SE3[idx]
+        y = self.y[idx]
+        
+        return label1, label2, SE3, y
+    
