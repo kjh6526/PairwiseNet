@@ -1,0 +1,10 @@
+id: twoarm          # identifier string of the environment
+
+name: multipanda
+base_poses:
+  - [0, 0.3, 0]
+  - [0, -0.3, 0]
+
+base_orientations:
+  - -1.5708
+  - 1.5708

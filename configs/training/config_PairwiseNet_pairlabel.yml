@@ -1,0 +1,58 @@
+logdir: 'results_pairlabel'
+
+logger: 
+  type: 'base'
+  endwith: ['@']
+  wandblog: True #True to use WandB 
+  wandbconfig: ['train_dataset'] # WandB key
+
+model:
+  name: 'PairwiseNet_pairlabel'
+  label_dims: 32
+  output_dims: 1
+  hidden_nodes: [128, 128, 128]
+  activation: 'sigmoid'
+  last_activation: 'linear'
+
+data:
+  training:
+    dataset: 'pairwise_pairlabel'
+    root: 'datasets/Multiarm_Pairwise/20240710-181131_3000000_100'
+    batch_size: 1000
+    n_workers: 4
+    split: training
+    shuffle: True
+
+    label_dims: 32
+
+  validation: 
+    dataset: 'pairwise_pairlabel'
+    root: 'datasets/Multiarm_Pairwise/20240710-181131_3000000_100'
+    batch_size: 1000
+    n_workers: 4
+    split: validation
+    shuffle: True
+
+    label_dims: 32
+  
+  test:
+    dataset: 'global'
+    root: 'datasets/fourarm/20240704-184347_global_1000000'
+    batch_size: 1000
+    n_workers: 4
+    split: all
+    shuffle: False
+
+trainer: 'PairwiseNet'
+training: 
+  seed: 2
+  n_epoch: 2000
+  optimizer:
+    name: 'adam'
+    lr: 0.001
+  loss: 
+    name: 'mse'
+
+  print_interval: 100
+  val_interval: 1000
+  visualize_interval: 1000

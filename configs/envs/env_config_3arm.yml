@@ -1,24 +1,12 @@
-id: 3arm          # identifier string of the environment
+id: threearm          # identifier string of the environment
 
-name: multipanda      # name of the environment class
+name: multipanda
 base_poses:
-  - [0, 0, 0]
-  - [1.2, 0, 0]
-  - [0.6, -0.4, 0.23]
+  - [0, 0.5, 0]
+  - [0.433, -0.25, 0]
+  - [-0.433, -0.25, 0]
+
 base_orientations:
-  - 0
-  - 3.1415
-  - 1.5707
-hand: True
-
-obstacles:
-  - name: high_table
-    position: [.6, 0.0, 0.22132] 
-    orientation: [0, 0, 0, 1]
-  - name: shelve
-    position: [0.5287, 0.7204, 0.2539] 
-    orientation: [-0.01252, 0.00214, 0.70997, -0.70411]
-
-collision_pairs_config:
-  n_configurations: 1000000
-  safe_thr: 0.01
+  - -1.5708
+  - 2.618
+  - 0.5236
