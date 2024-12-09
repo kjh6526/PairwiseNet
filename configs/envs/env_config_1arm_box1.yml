@@ -1,0 +1,22 @@
+id: onearm_box1          # identifier string of the environment
+
+name: multipanda      # name of the environment class
+base_poses:
+  - [0, 0, 0]
+
+base_orientations:
+  - 0
+
+obstacles:
+  - name: 'box1'
+    position: [0.4, -0.1, 0.5]
+    orientation: [0, 0, 0, 1]
+
+  - name: 'box3'
+    position: [0.1, -0.5, 0.4]
+    orientation: [0, 0, 0, 1]
+  
+  - name: 'box5'
+    position: [0.2, 0.3, 0.5]
+    orientation: [0, 0, 0, 1]
+    

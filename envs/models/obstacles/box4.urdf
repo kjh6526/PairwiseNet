@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
-<robot name="boxobs">
-  <link name="boxobsLink">
+<robot name="box4">
+  <link name="box1link">
   <!-- <contact>
       <lateral_friction value="1"/>
   </contact> -->
@@ -12,7 +12,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <box size="0.2 0.7 0.1" />
+        <mesh filename="mesh/box/box4.obj" />
       </geometry>
       <material name="grey">
         <color rgba="0.5 0.5 0.5 1"/>
@@ -21,7 +21,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <box size="0.2 0.7 0.1" />
+        <mesh filename="mesh/box/box4.obj" />
       </geometry>
     </collision>
   </link>
