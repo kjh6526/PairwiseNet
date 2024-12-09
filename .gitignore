@@ -166,6 +166,7 @@ datasets
 *debug*
 results
 wandb
+results*
 
 # old codes
 *_old.*
